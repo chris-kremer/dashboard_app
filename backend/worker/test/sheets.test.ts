@@ -8,7 +8,8 @@ import {
   parseFood,
   parseFreeTime,
   parseSchedule,
-  parseSleep
+  parseSleep,
+  rankedLabels
 } from "../src/sheets";
 
 describe("sheet parsers", () => {
@@ -99,6 +100,10 @@ describe("sheet parsers", () => {
       start: "18:05",
       end: "18:50"
     });
+  });
+
+  it("ranks caffeine labels by count", () => {
+    expect(rankedLabels(["coffee", "tea", "Coffee", "espresso", "tea", "coffee"])).toEqual(["coffee", "tea", "espresso"]);
   });
 });
 

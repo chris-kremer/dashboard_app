@@ -67,6 +67,7 @@ export interface TrackerSnapshot {
   schedule: ScheduleItem[];
   openTasks: ScheduleItem[];
   caffeine: CaffeineEntry[];
+  caffeineOptions: string[];
   food: FoodEntry[];
   sleep: SleepEntry | null;
   freeTime: FreeTimeEntry[];

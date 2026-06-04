@@ -51,12 +51,14 @@ export async function readSnapshot(env: Env, date: string): Promise<TrackerSnaps
   const allSchedule = parseSchedule(values[0]?.values ?? []);
   const schedule = allSchedule.filter(item => item.date === date);
   const openTasks = allSchedule.filter(isOpenTask).sort(sortByAdjustedPriority);
-  const caffeine = parseCaffeine(values[1]?.values ?? []).filter(item => item.date === date);
+  const allCaffeine = parseCaffeine(values[1]?.values ?? []);
+  const caffeine = allCaffeine.filter(item => item.date === date);
+  const caffeineOptions = rankedLabels(allCaffeine.map(item => item.label));
   const food = parseFood(values[2]?.values ?? []).filter(item => item.date === date);
   const sleep = parseSleep(values[3]?.values ?? []).find(item => item.date === date) ?? null;
   const freeTime = parseFreeTime(values[4]?.values ?? []).filter(item => item.date === date);
 
-  return { serverTime: new Date().toISOString(), date, schedule, openTasks, caffeine, food, sleep, freeTime };
+  return { serverTime: new Date().toISOString(), date, schedule, openTasks, caffeine, caffeineOptions, food, sleep, freeTime };
 }
 
 export async function appendTask(env: Env, body: any): Promise<ScheduleItem> {
@@ -206,6 +208,23 @@ export function parseFreeTime(rows: unknown[][], startRow = 2): FreeTimeEntry[] 
 
 export function isOpenTask(item: ScheduleItem): boolean {
   return item.task.trim().length > 0 && item.status !== "done" && item.status !== "cancelled" && item.status !== "logged" && (!item.stop || item.status === "in_progress");
+}
+
+export function rankedLabels(labels: string[]): string[] {
+  const counts = new Map<string, { label: string; count: number }>();
+  for (const label of labels) {
+    const normalized = label.trim().toLowerCase();
+    if (!normalized) continue;
+    const existing = counts.get(normalized);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      counts.set(normalized, { label: label.trim(), count: 1 });
+    }
+  }
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .map(item => item.label);
 }
 
 export function normalizeDate(value: unknown): string {

@@ -9,7 +9,15 @@ struct LogCaffeineView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Label", text: $label)
+                if !caffeineOptions.isEmpty {
+                    Picker("Drink", selection: $label) {
+                        ForEach(caffeineOptions, id: \.self) { option in
+                            Text(option).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                TextField("Custom drink", text: $label)
                 DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
             }
             .navigationTitle("Log Coffee")
@@ -32,5 +40,13 @@ struct LogCaffeineView: View {
                 }
             }
         }
+    }
+
+    private var caffeineOptions: [String] {
+        let options = sync.snapshot.caffeineOptions ?? []
+        if options.contains(label) {
+            return options
+        }
+        return label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? options : [label] + options
     }
 }

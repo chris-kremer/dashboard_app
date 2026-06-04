@@ -49,14 +49,15 @@ private struct TimelineScaleView: View {
         HStack(alignment: .top, spacing: 12) {
             timeLabels
             GeometryReader { proxy in
+                let safeWidth = max(proxy.size.width, 1)
                 ZStack(alignment: .topLeading) {
                     grid
-                    ForEach(layoutEntries(width: proxy.size.width)) { item in
+                    ForEach(layoutEntries(width: safeWidth)) { item in
                         TimelineBlockView(entry: item.entry)
                             .frame(width: item.width, height: item.height)
                             .offset(x: item.x, y: yOffset(for: item.entry.startMinute))
                     }
-                    nowMarker(width: proxy.size.width)
+                    nowMarker(width: safeWidth)
                         .offset(y: yOffset(for: minuteOfDay(now)))
                 }
             }
@@ -94,7 +95,8 @@ private struct TimelineScaleView: View {
             let overlaps = entries.filter { $0.overlaps(entry) }.count
             let column = entries[..<index].filter { $0.overlaps(entry) }.count
             let gap: CGFloat = overlaps > 1 ? 6 : 0
-            let blockWidth = (width - gap * CGFloat(max(overlaps - 1, 0))) / CGFloat(max(overlaps, 1))
+            let availableWidth = max(width - gap * CGFloat(max(overlaps - 1, 0)), 1)
+            let blockWidth = max(availableWidth / CGFloat(max(overlaps, 1)), 1)
             return TimelineLayoutEntry(
                 entry: entry,
                 x: CGFloat(column) * (blockWidth + gap),
@@ -118,7 +120,7 @@ private struct TimelineScaleView: View {
                 .background(.background, in: Capsule())
             Rectangle()
                 .fill(.red)
-                .frame(width: width, height: 2)
+                .frame(width: max(width, 1), height: 2)
         }
         .offset(x: -32, y: -6)
     }

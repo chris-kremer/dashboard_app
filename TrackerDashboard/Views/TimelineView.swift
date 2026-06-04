@@ -23,7 +23,9 @@ struct TimelineView: View {
                         EmptyStateView(title: "No timeline blocks", systemImage: "calendar")
                             .padding(.top, 40)
                     } else {
-                        TimelineScaleView(entries: entries)
+                        SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
+                            TimelineScaleView(entries: entries, now: context.date)
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -37,6 +39,7 @@ struct TimelineView: View {
 
 private struct TimelineScaleView: View {
     let entries: [TimelineEntry]
+    let now: Date
 
     private let hourHeight: CGFloat = 58
     private let labelWidth: CGFloat = 52
@@ -53,6 +56,8 @@ private struct TimelineScaleView: View {
                             .frame(width: item.width, height: item.height)
                             .offset(x: item.x, y: yOffset(for: item.entry.startMinute))
                     }
+                    nowMarker(width: proxy.size.width)
+                        .offset(y: yOffset(for: minuteOfDay(now)))
                 }
             }
             .frame(height: totalHeight)
@@ -101,6 +106,26 @@ private struct TimelineScaleView: View {
 
     private func yOffset(for minute: Int) -> CGFloat {
         CGFloat(minute) / 60 * hourHeight
+    }
+
+    private func nowMarker(width: CGFloat) -> some View {
+        HStack(spacing: 6) {
+            Text("now")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.red)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(.background, in: Capsule())
+            Rectangle()
+                .fill(.red)
+                .frame(width: width, height: 2)
+        }
+        .offset(x: -32, y: -6)
+    }
+
+    private func minuteOfDay(_ date: Date) -> Int {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (components.hour ?? 0) * 60 + (components.minute ?? 0)
     }
 }
 

@@ -15,6 +15,12 @@ struct InsightsView: View {
         sync.snapshot.schedule.filter { $0.status == .done }.count
     }
 
+    private var completedTaskItems: [ScheduleItem] {
+        sync.snapshot.schedule
+            .filter { $0.status == .done }
+            .sorted { ($0.start ?? "", $0.task) < ($1.start ?? "", $1.task) }
+    }
+
     private var urgentTasks: [ScheduleItem] {
         sync.snapshot.schedule.filter { ($0.adjustedPriority ?? 0) >= 10 }
     }
@@ -47,13 +53,19 @@ struct InsightsView: View {
                     workloadCard
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        insightCard(
-                            title: "Completed",
-                            value: "\(completedTasks)",
-                            detail: "tasks closed",
-                            systemImage: "checkmark.circle.fill",
-                            tint: .green
-                        )
+                        NavigationLink {
+                            CompletedTasksDetailView(tasks: completedTaskItems)
+                        } label: {
+                            insightCard(
+                                title: "Completed",
+                                value: "\(completedTasks)",
+                                detail: "tasks closed",
+                                systemImage: "checkmark.circle.fill",
+                                tint: .green,
+                                showsDisclosure: true
+                            )
+                        }
+                        .buttonStyle(.plain)
                         insightCard(
                             title: "Urgent Done",
                             value: "\(urgentCompletionPercent)%",
@@ -119,11 +131,19 @@ struct InsightsView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func insightCard(title: String, value: String, detail: String, systemImage: String, tint: Color) -> some View {
+    private func insightCard(title: String, value: String, detail: String, systemImage: String, tint: Color, showsDisclosure: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
+            HStack {
+                Image(systemName: systemImage)
+                    .font(.title3)
+                    .foregroundStyle(tint)
+                Spacer()
+                if showsDisclosure {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
             Text(value)
                 .font(.largeTitle.monospacedDigit().weight(.bold))
             VStack(alignment: .leading, spacing: 2) {
@@ -221,5 +241,45 @@ struct InsightsView: View {
         let hours = minutes / 60
         let remainder = minutes % 60
         return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
+    }
+}
+
+private struct CompletedTasksDetailView: View {
+    let tasks: [ScheduleItem]
+
+    var body: some View {
+        List {
+            if tasks.isEmpty {
+                ContentUnavailableView("No completed tasks", systemImage: "checkmark.circle")
+            } else {
+                ForEach(tasks) { task in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(task.task)
+                            .font(.headline)
+                        if !task.category.isEmpty {
+                            Text(task.category)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        HStack(spacing: 10) {
+                            if let start = task.start {
+                                Label(start, systemImage: "play.fill")
+                            }
+                            if let stop = task.stop {
+                                Label(stop, systemImage: "stop.fill")
+                            }
+                            if let actual = task.actualMinutes {
+                                Label("\(actual)m", systemImage: "timer")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle("Completed")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

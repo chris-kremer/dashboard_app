@@ -16,6 +16,30 @@ struct TaskPatchRequest: Codable, Equatable {
     var start: String?
     var stop: String?
     var status: TaskStatus?
+    var clearsStop = false
+
+    enum CodingKeys: String, CodingKey {
+        case priority
+        case estimateMinutes
+        case comment
+        case start
+        case stop
+        case status
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(priority, forKey: .priority)
+        try container.encodeIfPresent(estimateMinutes, forKey: .estimateMinutes)
+        try container.encodeIfPresent(comment, forKey: .comment)
+        try container.encodeIfPresent(start, forKey: .start)
+        if clearsStop {
+            try container.encodeNil(forKey: .stop)
+        } else {
+            try container.encodeIfPresent(stop, forKey: .stop)
+        }
+        try container.encodeIfPresent(status, forKey: .status)
+    }
 }
 
 struct CompleteTaskRequest: Codable, Equatable {

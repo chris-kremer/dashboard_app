@@ -192,7 +192,7 @@ export function parseSleep(rows: unknown[][]): SleepEntry[] {
 }
 
 export function isOpenTask(item: ScheduleItem): boolean {
-  return item.task.trim().length > 0 && item.status !== "done" && item.status !== "cancelled" && !item.stop;
+  return item.task.trim().length > 0 && item.status !== "done" && item.status !== "cancelled" && (!item.stop || item.status === "in_progress");
 }
 
 export function normalizeDate(value: unknown): string {

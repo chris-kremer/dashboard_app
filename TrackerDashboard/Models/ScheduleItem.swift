@@ -33,3 +33,23 @@ struct ScheduleItem: Codable, Identifiable, Equatable {
         case status
     }
 }
+
+extension ScheduleItem {
+    func dateTime(from timeString: String?) -> Date? {
+        guard let timeString,
+              let time = Date.trackerTimeFormatter.date(from: timeString)
+        else {
+            return nil
+        }
+
+        let calendar = Calendar(identifier: .gregorian)
+        let baseDate = Date.trackerDateFormatter.date(from: date) ?? Date()
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+        return calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: baseDate
+        )
+    }
+}

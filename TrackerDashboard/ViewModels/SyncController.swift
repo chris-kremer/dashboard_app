@@ -72,13 +72,15 @@ final class SyncController {
     }
 
     func startTask(_ task: ScheduleItem) async {
+        let startTime = resumedStartTime(for: task) ?? Date.trackerTimeFormatter.string(from: Date())
         let patch = TaskPatchRequest(
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
-            start: Date.trackerTimeFormatter.string(from: Date()),
+            start: startTime,
             stop: nil,
-            status: .inProgress
+            status: .inProgress,
+            clearsStop: true
         )
         await updateTask(rowNumber: task.rowNumber, patch: patch)
     }
@@ -90,7 +92,7 @@ final class SyncController {
             comment: nil,
             start: nil,
             stop: Date.trackerTimeFormatter.string(from: Date()),
-            status: nil
+            status: .inProgress
         )
         await updateTask(rowNumber: task.rowNumber, patch: patch)
     }
@@ -150,5 +152,15 @@ final class SyncController {
             try? cache.appendPendingOperation(pending)
             syncState = cache.loadSyncState()
         }
+    }
+
+    private func resumedStartTime(for task: ScheduleItem) -> String? {
+        guard let startedAt = task.dateTime(from: task.start),
+              let stoppedAt = task.dateTime(from: task.stop)
+        else {
+            return nil
+        }
+        let elapsed = max(0, stoppedAt.timeIntervalSince(startedAt))
+        return Date.trackerTimeFormatter.string(from: Date().addingTimeInterval(-elapsed))
     }
 }

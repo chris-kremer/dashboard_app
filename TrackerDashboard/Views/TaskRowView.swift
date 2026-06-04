@@ -8,6 +8,8 @@ struct TaskRowView: View {
     @State private var editing = false
     @State private var activeAction: TaskRowAction?
     @State private var startedAtOverride: Date?
+    @State private var stoppedAtOverride: Date?
+    @State private var doneFillFraction: Double?
 
     var body: some View {
         SwiftUI.TimelineView(.periodic(from: .now, by: 15)) { context in
@@ -52,8 +54,8 @@ struct TaskRowView: View {
                 if let priority = task.priority {
                     Label("P\(priority)", systemImage: "flag")
                 }
-                if let startedAt = taskStartDate() ?? startedAtOverride, task.stop == nil {
-                    Label(elapsedText(since: startedAt), systemImage: "clock")
+                if let startedAt = taskStartDate() ?? startedAtOverride {
+                    Label(elapsedText(since: startedAt, until: stoppedAtOverride ?? task.dateTime(from: task.stop)), systemImage: stoppedAtOverride == nil && task.stop == nil ? "clock" : "pause.circle")
                 }
                 Spacer()
             }
@@ -114,15 +116,17 @@ struct TaskRowView: View {
         Task {
             switch action {
             case .done:
+                await animateDoneFill()
                 await sync.completeTask(task)
             case .start:
                 await MainActor.run {
-                    startedAtOverride = Date()
+                    startedAtOverride = resumedStartDate() ?? Date()
+                    stoppedAtOverride = nil
                 }
                 await sync.startTask(task)
             case .stop:
                 await MainActor.run {
-                    startedAtOverride = nil
+                    stoppedAtOverride = Date()
                 }
                 await sync.stopTask(task)
             }
@@ -143,7 +147,12 @@ struct TaskRowView: View {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(.thinMaterial)
-                if let progress {
+                if let doneFillFraction {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.green.opacity(0.34))
+                        .frame(width: proxy.size.width * doneFillFraction)
+                        .animation(.easeOut(duration: 0.32), value: doneFillFraction)
+                } else if let progress {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(progress.color.opacity(0.26))
                         .frame(width: proxy.size.width * progress.widthFraction)
@@ -155,15 +164,15 @@ struct TaskRowView: View {
     }
 
     private func progressState(now: Date) -> (widthFraction: Double, color: Color, colorStep: Int)? {
-        guard task.stop == nil,
-              let estimate = task.estimateMinutes,
+        guard let estimate = task.estimateMinutes,
               estimate > 0,
               let startedAt = taskStartDate() ?? startedAtOverride
         else {
             return nil
         }
 
-        let elapsedMinutes = max(0, now.timeIntervalSince(startedAt) / 60)
+        let effectiveNow = stoppedAtOverride ?? task.dateTime(from: task.stop) ?? now
+        let elapsedMinutes = max(0, effectiveNow.timeIntervalSince(startedAt) / 60)
         let ratio = elapsedMinutes / Double(estimate)
         let widthFraction = min(max(ratio, 0), 1)
         let color = progressColor(for: ratio)
@@ -192,28 +201,42 @@ struct TaskRowView: View {
     }
 
     private func taskStartDate() -> Date? {
-        guard let start = task.start,
-              let time = Date.trackerTimeFormatter.date(from: start)
+        task.dateTime(from: task.start)
+    }
+
+    private func elapsedText(since startedAt: Date, until stoppedAt: Date?) -> String {
+        let minutes = max(0, Int((stoppedAt ?? Date()).timeIntervalSince(startedAt) / 60))
+        let suffix = stoppedAt == nil ? "elapsed" : "paused"
+        if minutes < 60 {
+            return "\(minutes)m \(suffix)"
+        }
+        return "\(minutes / 60)h \(minutes % 60)m \(suffix)"
+    }
+
+    private func resumedStartDate() -> Date? {
+        guard let startedAt = taskStartDate(),
+              let stoppedAt = stoppedAtOverride ?? task.dateTime(from: task.stop)
         else {
             return nil
         }
-        let calendar = Calendar(identifier: .gregorian)
-        let date = Date.trackerDateFormatter.date(from: task.date) ?? Date()
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
-        return calendar.date(
-            bySettingHour: timeComponents.hour ?? 0,
-            minute: timeComponents.minute ?? 0,
-            second: 0,
-            of: date
-        )
+        let elapsed = max(0, stoppedAt.timeIntervalSince(startedAt))
+        return Date().addingTimeInterval(-elapsed)
     }
 
-    private func elapsedText(since startedAt: Date) -> String {
-        let minutes = max(0, Int(Date().timeIntervalSince(startedAt) / 60))
-        if minutes < 60 {
-            return "\(minutes)m elapsed"
+    private func animateDoneFill() async {
+        let current = await MainActor.run {
+            progressState(now: Date())?.widthFraction ?? 0
         }
-        return "\(minutes / 60)h \(minutes % 60)m elapsed"
+        await MainActor.run {
+            doneFillFraction = current
+        }
+        try? await Task.sleep(for: .milliseconds(40))
+        await MainActor.run {
+            withAnimation(.easeOut(duration: 0.32)) {
+                doneFillFraction = 1
+            }
+        }
+        try? await Task.sleep(for: .milliseconds(360))
     }
 }
 

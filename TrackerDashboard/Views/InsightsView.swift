@@ -21,17 +21,26 @@ struct InsightsView: View {
             .sorted { ($0.start ?? "", $0.task) < ($1.start ?? "", $1.task) }
     }
 
-    private var urgentTasks: [ScheduleItem] {
-        sync.snapshot.schedule.filter { ($0.adjustedPriority ?? 0) >= 10 }
+    private var urgentCompletedItems: [ScheduleItem] {
+        sync.snapshot.schedule
+            .filter { $0.status == .done && ($0.adjustedPriority ?? 0) >= 10 }
+            .sorted { ($0.adjustedPriority ?? -1, $0.task) > ($1.adjustedPriority ?? -1, $1.task) }
     }
 
-    private var urgentCompleted: Int {
-        urgentTasks.filter { $0.status == .done }.count
+    private var urgentOpenItems: [ScheduleItem] {
+        sync.snapshot.openTasks
+            .filter { ($0.adjustedPriority ?? 0) >= 10 }
+            .filter { item in !urgentCompletedItems.contains { $0.id == item.id } }
+            .sorted { ($0.adjustedPriority ?? -1, $0.task) > ($1.adjustedPriority ?? -1, $1.task) }
+    }
+
+    private var urgentKnownCount: Int {
+        urgentCompletedItems.count + urgentOpenItems.count
     }
 
     private var urgentCompletionShare: Double {
-        guard !urgentTasks.isEmpty else { return 0 }
-        return Double(urgentCompleted) / Double(urgentTasks.count)
+        guard urgentKnownCount > 0 else { return 0 }
+        return Double(urgentCompletedItems.count) / Double(urgentKnownCount)
     }
 
     private var urgentCompletionPercent: Int {
@@ -66,13 +75,19 @@ struct InsightsView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        insightCard(
-                            title: "Urgent Done",
-                            value: "\(urgentCompletionPercent)%",
-                            detail: "\(urgentCompleted)/\(urgentTasks.count) top-priority",
-                            systemImage: "flame.fill",
-                            tint: urgentCompletionTint
-                        )
+                        NavigationLink {
+                            UrgentTasksDetailView(completed: urgentCompletedItems, open: urgentOpenItems)
+                        } label: {
+                            insightCard(
+                                title: "Urgent Done",
+                                value: "\(urgentCompletionPercent)%",
+                                detail: "\(urgentCompletedItems.count)/\(urgentKnownCount) AP 10+",
+                                systemImage: "flame.fill",
+                                tint: urgentCompletionTint,
+                                showsDisclosure: true
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     sectionTitle("Logged Today")
@@ -228,7 +243,7 @@ struct InsightsView: View {
     }
 
     private var urgentCompletionTint: Color {
-        guard !urgentTasks.isEmpty else { return .secondary }
+        guard urgentKnownCount > 0 else { return .secondary }
         if urgentCompletionShare >= 0.8 { return .green }
         if urgentCompletionShare >= 0.4 { return .orange }
         return .red
@@ -253,33 +268,86 @@ private struct CompletedTasksDetailView: View {
                 ContentUnavailableView("No completed tasks", systemImage: "checkmark.circle")
             } else {
                 ForEach(tasks) { task in
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(task.task)
-                            .font(.headline)
-                        if !task.category.isEmpty {
-                            Text(task.category)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        HStack(spacing: 10) {
-                            if let start = task.start {
-                                Label(start, systemImage: "play.fill")
-                            }
-                            if let stop = task.stop {
-                                Label(stop, systemImage: "stop.fill")
-                            }
-                            if let actual = task.actualMinutes {
-                                Label("\(actual)m", systemImage: "timer")
-                            }
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
+                    InsightTaskRow(task: task, tint: .green)
                 }
             }
         }
         .navigationTitle("Completed")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct UrgentTasksDetailView: View {
+    let completed: [ScheduleItem]
+    let open: [ScheduleItem]
+
+    var body: some View {
+        List {
+            if completed.isEmpty && open.isEmpty {
+                ContentUnavailableView("No urgent tasks", systemImage: "flame")
+            } else {
+                if !completed.isEmpty {
+                    Section("Done") {
+                        ForEach(completed) { task in
+                            InsightTaskRow(task: task, tint: .green)
+                        }
+                    }
+                }
+                if !open.isEmpty {
+                    Section("Open") {
+                        ForEach(open) { task in
+                            InsightTaskRow(task: task, tint: .orange)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Urgent Done")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct InsightTaskRow: View {
+    let task: ScheduleItem
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(task.task)
+                    .font(.headline)
+                Spacer()
+                if let adjustedPriority = task.adjustedPriority {
+                    Text("AP \(adjustedPriority)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(tint, in: Capsule())
+                }
+            }
+            if !task.category.isEmpty {
+                Text(task.category)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 10) {
+                if let estimate = task.estimateMinutes {
+                    Label("\(estimate)m", systemImage: "timer")
+                }
+                if let priority = task.priority {
+                    Label("P\(priority)", systemImage: "flag")
+                }
+                if let start = task.start {
+                    Label(start, systemImage: "play.fill")
+                }
+                if let stop = task.stop {
+                    Label(stop, systemImage: "stop.fill")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
     }
 }

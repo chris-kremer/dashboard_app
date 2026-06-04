@@ -6,11 +6,15 @@ struct TodayView: View {
     @State private var showingAddTask = false
     @State private var showingCaffeine = false
     @State private var showingFood = false
+    @State private var refreshMessage: String?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    if let refreshMessage {
+                        refreshConfirmation(refreshMessage)
+                    }
                     nowNextCards
                     quickActions
                     topTasks
@@ -19,19 +23,30 @@ struct TodayView: View {
                 .padding()
             }
             .navigationTitle("")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await sync.refresh() }
-                    } label: {
-                        Image(systemName: sync.isRefreshing ? "arrow.clockwise.circle.fill" : "arrow.clockwise")
-                    }
-                    .accessibilityLabel("Refresh")
-                }
+            .refreshable {
+                await refreshToday()
             }
             .sheet(isPresented: $showingAddTask) { AddTaskView() }
             .sheet(isPresented: $showingCaffeine) { LogCaffeineView() }
             .sheet(isPresented: $showingFood) { LogFoodView() }
+        }
+    }
+
+    private func refreshToday() async {
+        await sync.refresh()
+        let message = sync.syncState.lastError == nil
+            ? "Updated \(Date.now.formatted(date: .omitted, time: .shortened))"
+            : "Refresh failed"
+        await MainActor.run {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) {
+                refreshMessage = message
+            }
+        }
+        try? await Task.sleep(for: .seconds(2))
+        await MainActor.run {
+            withAnimation(.easeOut(duration: 0.2)) {
+                refreshMessage = nil
+            }
         }
     }
 
@@ -44,6 +59,17 @@ struct TodayView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func refreshConfirmation(_ message: String) -> some View {
+        Label(message, systemImage: message == "Refresh failed" ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(message == "Refresh failed" ? .orange : .green)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.thinMaterial, in: Capsule())
+            .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private var nowNextCards: some View {

@@ -15,9 +15,11 @@ struct TaskRowView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(task.task)
                             .font(compact ? .headline : .title3.weight(.semibold))
-                        Text([task.category, task.date].filter { !$0.isEmpty }.joined(separator: " • "))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        if !task.category.isEmpty {
+                            Text(task.category)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     Spacer(minLength: 12)
                     PriorityChip(value: rank, colorValue: task.adjustedPriority)

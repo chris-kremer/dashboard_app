@@ -82,7 +82,7 @@ struct TopTaskWidgetView: View {
         GeometryReader { proxy in
             if let progress = progressState(for: task) {
                 Rectangle()
-                    .fill(progress.color.opacity(0.26))
+                    .fill(progress.color.opacity(0.34))
                     .frame(width: proxy.size.width * progress.widthFraction)
                     .frame(maxHeight: .infinity)
             }

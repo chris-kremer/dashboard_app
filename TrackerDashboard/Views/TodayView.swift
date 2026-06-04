@@ -47,23 +47,35 @@ struct TodayView: View {
     }
 
     private var nowNextCards: some View {
-        VStack(spacing: 8) {
-            let current = viewModel.currentBlock(in: sync.snapshot)
-            compactStatusCard(
-                title: "Now",
-                systemImage: "clock",
-                value: current.map { "\($0.task) until \($0.stop ?? "")" } ?? "No active block",
-                detail: current?.category
-            )
+        SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
+            VStack(spacing: 8) {
+                let current = viewModel.currentBlock(in: sync.snapshot, now: context.date)
+                compactStatusCard(
+                    title: "Now",
+                    systemImage: "clock",
+                    value: current.map(activeActivityText) ?? "No active block",
+                    detail: current?.category
+                )
 
-            let next = viewModel.nextBlock(in: sync.snapshot)
-            compactStatusCard(
-                title: "Next",
-                systemImage: "arrow.forward.circle",
-                value: next.map { "\($0.task) \($0.start ?? "")" } ?? "No upcoming block",
-                detail: next?.category
-            )
+                let next = viewModel.nextBlock(in: sync.snapshot, now: context.date)
+                compactStatusCard(
+                    title: "Next",
+                    systemImage: "arrow.forward.circle",
+                    value: next.map { "\($0.task) \($0.start ?? "")" } ?? "No upcoming block",
+                    detail: next?.category
+                )
+            }
         }
+    }
+
+    private func activeActivityText(_ item: ScheduleItem) -> String {
+        if let stop = item.stop {
+            return "\(item.task) until \(stop)"
+        }
+        if let start = item.start {
+            return "\(item.task) since \(start)"
+        }
+        return item.task
     }
 
     private func compactStatusCard(title: String, systemImage: String, value: String, detail: String?) -> some View {

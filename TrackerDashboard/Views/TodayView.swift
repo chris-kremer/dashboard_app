@@ -11,7 +11,6 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    header
                     nowNextCards
                     quickActions
                     topTasks
@@ -48,33 +47,48 @@ struct TodayView: View {
     }
 
     private var nowNextCards: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             let current = viewModel.currentBlock(in: sync.snapshot)
-            DashboardCard {
-                Label("Now", systemImage: "clock")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(current.map { "\($0.task) until \($0.stop ?? "")" } ?? "No active block")
-                    .font(.title3.weight(.semibold))
-                if let current {
-                    Text(current.category)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            compactStatusCard(
+                title: "Now",
+                systemImage: "clock",
+                value: current.map { "\($0.task) until \($0.stop ?? "")" } ?? "No active block",
+                detail: current?.category
+            )
 
             let next = viewModel.nextBlock(in: sync.snapshot)
-            DashboardCard {
-                Label("Next", systemImage: "arrow.forward.circle")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(next.map { "\($0.task) \($0.start ?? "")" } ?? "No upcoming block")
+            compactStatusCard(
+                title: "Next",
+                systemImage: "arrow.forward.circle",
+                value: next.map { "\($0.task) \($0.start ?? "")" } ?? "No upcoming block",
+                detail: next?.category
+            )
+        }
+    }
+
+    private func compactStatusCard(title: String, systemImage: String, value: String, detail: String?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Label(title, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 56, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
                     .font(.headline)
-                if let next {
-                    Text(next.category)
+                    .lineLimit(1)
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var quickActions: some View {

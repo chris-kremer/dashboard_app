@@ -92,9 +92,24 @@ struct InsightsView: View {
 
                     sectionTitle("Logged Today")
                     HStack(spacing: 10) {
-                        compactMetric("Coffee", "\(sync.snapshot.caffeine.count)", "cup.and.saucer.fill", .brown)
-                        compactMetric("Food", "\(sync.snapshot.food.count)", "fork.knife", .teal)
-                        compactMetric("Sleep", sleepValue, "bed.double.fill", .indigo)
+                        NavigationLink {
+                            CaffeineDetailView(entries: sync.snapshot.caffeine)
+                        } label: {
+                            compactMetric("Coffee", "\(sync.snapshot.caffeine.count)", "cup.and.saucer.fill", .brown, showsDisclosure: true)
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink {
+                            FoodDetailView(entries: sync.snapshot.food)
+                        } label: {
+                            compactMetric("Food", "\(sync.snapshot.food.count)", "fork.knife", .teal, showsDisclosure: true)
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink {
+                            SleepDetailView(sleep: sync.snapshot.sleep)
+                        } label: {
+                            compactMetric("Sleep", sleepValue, "bed.double.fill", .indigo, showsDisclosure: true)
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     if let sleep = sync.snapshot.sleep {
@@ -174,10 +189,18 @@ struct InsightsView: View {
         .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func compactMetric(_ title: String, _ value: String, _ systemImage: String, _ tint: Color) -> some View {
+    private func compactMetric(_ title: String, _ value: String, _ systemImage: String, _ tint: Color, showsDisclosure: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: systemImage)
-                .foregroundStyle(tint)
+            HStack {
+                Image(systemName: systemImage)
+                    .foregroundStyle(tint)
+                Spacer()
+                if showsDisclosure {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
             Text(value)
                 .font(.title2.monospacedDigit().weight(.bold))
             Text(title)
@@ -349,5 +372,115 @@ private struct InsightTaskRow: View {
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+    }
+}
+
+private struct CaffeineDetailView: View {
+    let entries: [CaffeineEntry]
+
+    var body: some View {
+        List {
+            if entries.isEmpty {
+                ContentUnavailableView("No coffee logged", systemImage: "cup.and.saucer")
+            } else {
+                ForEach(entries.sorted { $0.time < $1.time }) { entry in
+                    HStack(spacing: 12) {
+                        Image(systemName: "cup.and.saucer.fill")
+                            .foregroundStyle(.brown)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(entry.label)
+                                .font(.headline)
+                            Text(entry.time)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle("Coffee")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct FoodDetailView: View {
+    let entries: [FoodEntry]
+
+    var body: some View {
+        List {
+            if entries.isEmpty {
+                ContentUnavailableView("No food logged", systemImage: "fork.knife")
+            } else {
+                ForEach(entries.sorted { $0.time < $1.time }) { entry in
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(entry.item)
+                                .font(.headline)
+                            Spacer()
+                            Text(entry.time)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(entry.mealContext)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 10) {
+                            if let amount = entry.amount, !amount.isEmpty {
+                                Label(amount, systemImage: "scalemass")
+                            }
+                            if let location = entry.location, !location.isEmpty {
+                                Label(location, systemImage: "mappin")
+                            }
+                            if let confidence = entry.confidence, !confidence.isEmpty {
+                                Label(confidence, systemImage: "checkmark.seal")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        if let notes = entry.notes, !notes.isEmpty {
+                            Text(notes)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle("Food")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct SleepDetailView: View {
+    let sleep: SleepEntry?
+
+    var body: some View {
+        List {
+            if let sleep {
+                Section("Sleep") {
+                    sleepRow("Duration", sleep.sleepHours.map { String(format: "%.1fh", $0) } ?? "-", "bed.double.fill")
+                    sleepRow("Sleep start", sleep.sleepStart ?? "-", "moon.fill")
+                    sleepRow("Alarm", sleep.alarmTime ?? "-", "alarm.fill")
+                    sleepRow("Planned wake", sleep.plannedWake ?? "-", "calendar")
+                    sleepRow("Actual wake", sleep.actualWake ?? "-", "sun.max.fill")
+                    sleepRow("Overslept", sleep.oversleptHours.map { String(format: "%.1fh", $0) } ?? "-", "exclamationmark.triangle.fill")
+                }
+            } else {
+                ContentUnavailableView("No sleep logged", systemImage: "bed.double")
+            }
+        }
+        .navigationTitle("Sleep")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func sleepRow(_ title: String, _ value: String, _ systemImage: String) -> some View {
+        LabeledContent {
+            Text(value)
+                .monospacedDigit()
+        } label: {
+            Label(title, systemImage: systemImage)
+        }
     }
 }

@@ -54,14 +54,11 @@ struct TaskListWidgetView: View {
                             .lineLimit(1)
                     }
                     Spacer()
-                    if family == .systemMedium, task == tasks.first {
-                        Button(intent: StartTaskIntent(rowId: task.id)) {
-                            Image(systemName: "play.fill")
-                        }
-                    }
+                    startStopButton(for: task)
                     Button(intent: CompleteTaskIntent(rowId: task.id)) {
                         Image(systemName: "checkmark")
                     }
+                    .foregroundStyle(.green)
                 }
             }
             if family == .systemLarge, let nextBlock {
@@ -74,5 +71,20 @@ struct TaskListWidgetView: View {
             Spacer(minLength: 0)
         }
         .padding()
+    }
+
+    @ViewBuilder
+    private func startStopButton(for task: ScheduleItem) -> some View {
+        if task.start != nil && task.stop == nil {
+            Button(intent: StopTaskIntent(rowId: task.id)) {
+                Image(systemName: "stop.fill")
+            }
+            .foregroundStyle(.blue)
+        } else {
+            Button(intent: StartTaskIntent(rowId: task.id)) {
+                Image(systemName: "play.fill")
+            }
+            .foregroundStyle(.orange)
+        }
     }
 }

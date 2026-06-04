@@ -7,59 +7,72 @@ struct TaskRowView: View {
     var compact = false
     @State private var editing = false
     @State private var activeAction: TaskRowAction?
+    @State private var startedAtOverride: Date?
 
     var body: some View {
-        DashboardCard {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(task.task)
-                            .font(compact ? .headline : .title3.weight(.semibold))
-                        if !task.category.isEmpty {
-                            Text(task.category)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer(minLength: 12)
-                    PriorityChip(value: rank, colorValue: task.adjustedPriority)
+        SwiftUI.TimelineView(.periodic(from: .now, by: 15)) { context in
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background {
+                    progressBackground(now: context.date)
                 }
-
-                if !compact, let comment = task.comment, !comment.isEmpty {
-                    Text(comment)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 8) {
-                    if let estimate = task.estimateMinutes {
-                        Label("\(estimate)m", systemImage: "timer")
-                    }
-                    if let priority = task.priority {
-                        Label("P\(priority)", systemImage: "flag")
-                    }
-                    Spacer()
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-                HStack {
-                    actionButton(.done)
-                    actionButton(.start)
-                    actionButton(.stop)
-                    if !compact {
-                        Button {
-                            editing = true
-                        } label: {
-                            Image(systemName: "pencil")
-                        }
-                        .accessibilityLabel("Edit task")
-                    }
-                }
-            }
         }
         .sheet(isPresented: $editing) {
             EditTaskView(task: task)
+        }
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.task)
+                        .font(compact ? .headline : .title3.weight(.semibold))
+                    if !task.category.isEmpty {
+                        Text(task.category)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 12)
+                PriorityChip(value: rank, colorValue: task.adjustedPriority)
+            }
+
+            if !compact, let comment = task.comment, !comment.isEmpty {
+                Text(comment)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 8) {
+                if let estimate = task.estimateMinutes {
+                    Label("\(estimate)m", systemImage: "timer")
+                }
+                if let priority = task.priority {
+                    Label("P\(priority)", systemImage: "flag")
+                }
+                if let startedAt = taskStartDate() ?? startedAtOverride, task.stop == nil {
+                    Label(elapsedText(since: startedAt), systemImage: "clock")
+                }
+                Spacer()
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            HStack {
+                actionButton(.done)
+                actionButton(.start)
+                actionButton(.stop)
+                if !compact {
+                    Button {
+                        editing = true
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .accessibilityLabel("Edit task")
+                }
+            }
         }
     }
 
@@ -103,8 +116,14 @@ struct TaskRowView: View {
             case .done:
                 await sync.completeTask(task)
             case .start:
+                await MainActor.run {
+                    startedAtOverride = Date()
+                }
                 await sync.startTask(task)
             case .stop:
+                await MainActor.run {
+                    startedAtOverride = nil
+                }
                 await sync.stopTask(task)
             }
             try? await Task.sleep(for: .milliseconds(900))
@@ -116,6 +135,85 @@ struct TaskRowView: View {
                 }
             }
         }
+    }
+
+    private func progressBackground(now: Date) -> some View {
+        GeometryReader { proxy in
+            let progress = progressState(now: now)
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(.thinMaterial)
+                if let progress {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(progress.color.opacity(0.26))
+                        .frame(width: proxy.size.width * progress.widthFraction)
+                        .animation(.linear(duration: 15), value: progress.widthFraction)
+                        .animation(.linear(duration: 15), value: progress.colorStep)
+                }
+            }
+        }
+    }
+
+    private func progressState(now: Date) -> (widthFraction: Double, color: Color, colorStep: Int)? {
+        guard task.stop == nil,
+              let estimate = task.estimateMinutes,
+              estimate > 0,
+              let startedAt = taskStartDate() ?? startedAtOverride
+        else {
+            return nil
+        }
+
+        let elapsedMinutes = max(0, now.timeIntervalSince(startedAt) / 60)
+        let ratio = elapsedMinutes / Double(estimate)
+        let widthFraction = min(max(ratio, 0), 1)
+        let color = progressColor(for: ratio)
+        let colorStep = min(Int(ratio * 20), 80)
+        return (widthFraction, color, colorStep)
+    }
+
+    private func progressColor(for ratio: Double) -> Color {
+        if ratio <= 1 {
+            return .green
+        }
+        if ratio <= 2 {
+            return Color(hue: interpolate(from: 0.33, to: 0.14, progress: ratio - 1), saturation: 0.82, brightness: 0.90)
+        }
+        if ratio <= 3 {
+            return Color(hue: interpolate(from: 0.14, to: 0.08, progress: ratio - 2), saturation: 0.88, brightness: 0.94)
+        }
+        if ratio <= 4 {
+            return Color(hue: interpolate(from: 0.08, to: 0.00, progress: ratio - 3), saturation: 0.88, brightness: 0.92)
+        }
+        return .red
+    }
+
+    private func interpolate(from start: Double, to end: Double, progress: Double) -> Double {
+        start + ((end - start) * min(max(progress, 0), 1))
+    }
+
+    private func taskStartDate() -> Date? {
+        guard let start = task.start,
+              let time = Date.trackerTimeFormatter.date(from: start)
+        else {
+            return nil
+        }
+        let calendar = Calendar(identifier: .gregorian)
+        let date = Date.trackerDateFormatter.date(from: task.date) ?? Date()
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+        return calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: date
+        )
+    }
+
+    private func elapsedText(since startedAt: Date) -> String {
+        let minutes = max(0, Int(Date().timeIntervalSince(startedAt) / 60))
+        if minutes < 60 {
+            return "\(minutes)m elapsed"
+        }
+        return "\(minutes / 60)h \(minutes % 60)m elapsed"
     }
 }
 

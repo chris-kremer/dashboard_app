@@ -94,7 +94,7 @@ private struct TimelineScaleView: View {
                 entry: entry,
                 x: CGFloat(column) * (blockWidth + gap),
                 width: blockWidth,
-                height: max(28, CGFloat(entry.durationMinutes) / 60 * hourHeight)
+                height: max(10, CGFloat(entry.durationMinutes) / 60 * hourHeight)
             )
         }
     }
@@ -108,6 +108,27 @@ private struct TimelineBlockView: View {
     let entry: TimelineEntry
 
     var body: some View {
+        GeometryReader { proxy in
+            if proxy.size.height < 18 {
+                compactBlock
+            } else {
+                fullBlock
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var compactBlock: some View {
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(entry.color.opacity(0.55))
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(entry.color)
+                    .frame(width: 4)
+            }
+    }
+
+    private var fullBlock: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 4) {
                 Circle()
@@ -136,7 +157,6 @@ private struct TimelineBlockView: View {
                 .fill(entry.color)
                 .frame(width: 4)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -174,7 +194,7 @@ private struct TimelineEntry: Identifiable {
             title: item.task,
             subtitle: item.category,
             startMinute: start,
-            endMinute: min(max(end, start + 15), 24 * 60),
+            endMinute: min(max(end, start + 1), 24 * 60),
             kind: .schedule(task: item.task, category: item.category)
         )
     }
@@ -202,7 +222,7 @@ private struct TimelineEntry: Identifiable {
             title: item.label,
             subtitle: "Free time",
             startMinute: start,
-            endMinute: min(max(end ?? fallbackEnd, start + 15), 24 * 60),
+            endMinute: min(max(end ?? fallbackEnd, start + 1), 24 * 60),
             kind: .freeTime
         )
     }

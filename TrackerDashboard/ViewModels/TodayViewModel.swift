@@ -21,7 +21,8 @@ final class TodayViewModel {
 
     func nextBlock(in snapshot: TrackerSnapshot) -> ScheduleItem? {
         snapshot.schedule
-            .filter { $0.start != nil }
+            .filter { $0.start != nil && $0.stop != nil }
+            .filter { $0.status != .inProgress }
             .filter { time($0.start ?? "00:00") > minutesNow }
             .sorted { time($0.start ?? "00:00") < time($1.start ?? "00:00") }
             .first

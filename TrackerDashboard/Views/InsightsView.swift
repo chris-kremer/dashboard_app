@@ -15,8 +15,21 @@ struct InsightsView: View {
         sync.snapshot.schedule.filter { $0.status == .done }.count
     }
 
-    private var highPriorityOpen: Int {
-        sync.snapshot.openTasks.filter { ($0.adjustedPriority ?? 0) >= 5 }.count
+    private var urgentTasks: [ScheduleItem] {
+        sync.snapshot.schedule.filter { ($0.adjustedPriority ?? 0) >= 10 }
+    }
+
+    private var urgentCompleted: Int {
+        urgentTasks.filter { $0.status == .done }.count
+    }
+
+    private var urgentCompletionShare: Double {
+        guard !urgentTasks.isEmpty else { return 0 }
+        return Double(urgentCompleted) / Double(urgentTasks.count)
+    }
+
+    private var urgentCompletionPercent: Int {
+        Int((urgentCompletionShare * 100).rounded())
     }
 
     private var actualShare: Double {
@@ -42,11 +55,11 @@ struct InsightsView: View {
                             tint: .green
                         )
                         insightCard(
-                            title: "High Priority",
-                            value: "\(highPriorityOpen)",
-                            detail: "still open",
+                            title: "Urgent Done",
+                            value: "\(urgentCompletionPercent)%",
+                            detail: "\(urgentCompleted)/\(urgentTasks.count) top-priority",
                             systemImage: "flame.fill",
-                            tint: highPriorityOpen > 0 ? .orange : .secondary
+                            tint: urgentCompletionTint
                         )
                     }
 
@@ -191,6 +204,13 @@ struct InsightsView: View {
         if ratio >= 1 { return .green }
         if ratio >= 0.6 { return .blue }
         if ratio >= 0.3 { return .orange }
+        return .red
+    }
+
+    private var urgentCompletionTint: Color {
+        guard !urgentTasks.isEmpty else { return .secondary }
+        if urgentCompletionShare >= 0.8 { return .green }
+        if urgentCompletionShare >= 0.4 { return .orange }
         return .red
     }
 

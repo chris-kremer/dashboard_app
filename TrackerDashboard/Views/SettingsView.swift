@@ -8,22 +8,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("API") {
-                    TextField("Base URL", text: $settings.apiBaseURL)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                    SecureField("API token", text: $token)
-                        .onSubmit { settings.apiToken = token }
-                    Button("Save token") {
-                        settings.apiToken = token
-                    }
-                }
-
-                Section("Sheet") {
-                    TextField("Spreadsheet ID", text: $settings.spreadsheetID)
-                        .textInputAutocapitalization(.never)
-                }
-
                 Section("Refresh") {
                     Stepper("Every \(settings.refreshIntervalMinutes) minutes", value: $settings.refreshIntervalMinutes, in: 5...240, step: 5)
                     Button("Force refresh") {
@@ -40,8 +24,45 @@ struct SettingsView: View {
                             .foregroundStyle(.red)
                     }
                 }
+
+                Section {
+                    NavigationLink {
+                        AdvancedSettingsView(settings: settings)
+                    } label: {
+                        Label("Advanced", systemImage: "slider.horizontal.3")
+                    }
+                } footer: {
+                    Text("API, token, and spreadsheet configuration.")
+                }
             }
             .navigationTitle("Settings")
         }
+    }
+}
+
+private struct AdvancedSettingsView: View {
+    @Bindable var settings: AppSettings
+    @State private var token = AppSettings.shared.apiToken
+
+    var body: some View {
+        Form {
+            Section("API") {
+                TextField("Base URL", text: $settings.apiBaseURL)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                SecureField("API token", text: $token)
+                    .onSubmit { settings.apiToken = token }
+                Button("Save token") {
+                    settings.apiToken = token
+                }
+            }
+
+            Section("Sheet") {
+                TextField("Spreadsheet ID", text: $settings.spreadsheetID)
+                    .textInputAutocapitalization(.never)
+            }
+        }
+        .navigationTitle("Advanced")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

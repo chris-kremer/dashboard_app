@@ -8,6 +8,7 @@ struct TrackerSnapshot: Codable, Equatable {
     var caffeine: [CaffeineEntry]
     var food: [FoodEntry]
     var sleep: SleepEntry?
+    var freeTime: [FreeTimeEntry]?
 
     static var empty: TrackerSnapshot {
         TrackerSnapshot(
@@ -17,7 +18,8 @@ struct TrackerSnapshot: Codable, Equatable {
             openTasks: [],
             caffeine: [],
             food: [],
-            sleep: nil
+            sleep: nil,
+            freeTime: []
         )
     }
 }

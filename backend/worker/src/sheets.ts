@@ -1,4 +1,4 @@
-import type { CaffeineEntry, Env, FoodEntry, ScheduleItem, SleepEntry, TrackerSnapshot } from "./types";
+import type { CaffeineEntry, Env, FoodEntry, FreeTimeEntry, ScheduleItem, SleepEntry, TrackerSnapshot } from "./types";
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -45,7 +45,7 @@ export async function getAccessToken(env: Env): Promise<string> {
 }
 
 export async function readSnapshot(env: Env, date: string): Promise<TrackerSnapshot> {
-  const ranges = ["schedule!A2:N", "caffein!A2:D", "foodtracker!A2:H", "sleep!A2:G"];
+  const ranges = ["schedule!A2:N", "caffein!A2:D", "foodtracker!A2:H", "sleep!A2:G", "free_time!A2:F"];
   const result = await sheetsGetBatch(env, ranges);
   const values = result.valueRanges ?? [];
   const allSchedule = parseSchedule(values[0]?.values ?? []);
@@ -54,8 +54,9 @@ export async function readSnapshot(env: Env, date: string): Promise<TrackerSnaps
   const caffeine = parseCaffeine(values[1]?.values ?? []).filter(item => item.date === date);
   const food = parseFood(values[2]?.values ?? []).filter(item => item.date === date);
   const sleep = parseSleep(values[3]?.values ?? []).find(item => item.date === date) ?? null;
+  const freeTime = parseFreeTime(values[4]?.values ?? []).filter(item => item.date === date);
 
-  return { serverTime: new Date().toISOString(), date, schedule, openTasks, caffeine, food, sleep };
+  return { serverTime: new Date().toISOString(), date, schedule, openTasks, caffeine, food, sleep, freeTime };
 }
 
 export async function appendTask(env: Env, body: any): Promise<ScheduleItem> {
@@ -189,6 +190,18 @@ export function parseSleep(rows: unknown[][]): SleepEntry[] {
     plannedWake: optionalTime(cell(row, 5)),
     actualWake: optionalTime(cell(row, 6))
   })).filter(item => item.date.length > 0);
+}
+
+export function parseFreeTime(rows: unknown[][], startRow = 2): FreeTimeEntry[] {
+  return rows.map((row, index) => ({
+    id: `free_time:${startRow + index}`,
+    date: normalizeDate(cell(row, 0)),
+    label: String(cell(row, 1) ?? ""),
+    durationMinutes: optionalNumber(cell(row, 2)),
+    time: optionalTime(cell(row, 3)),
+    start: optionalTime(cell(row, 4)),
+    end: optionalTime(cell(row, 5))
+  })).filter(item => item.date.length > 0 && item.label.length > 0);
 }
 
 export function isOpenTask(item: ScheduleItem): boolean {

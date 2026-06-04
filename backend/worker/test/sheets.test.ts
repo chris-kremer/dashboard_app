@@ -6,6 +6,7 @@ import {
   normalizeTime,
   parseCaffeine,
   parseFood,
+  parseFreeTime,
   parseSchedule,
   parseSleep
 } from "../src/sheets";
@@ -85,6 +86,16 @@ describe("sheet parsers", () => {
       sleepStart: "00:00",
       plannedWake: "07:00",
       actualWake: "07:30"
+    });
+
+    expect(parseFreeTime([["2026-06-04", "Walk", 45, "18:00", "18:05", "18:50"]])[0]).toEqual({
+      id: "free_time:2",
+      date: "2026-06-04",
+      label: "Walk",
+      durationMinutes: 45,
+      time: "18:00",
+      start: "18:05",
+      end: "18:50"
     });
   });
 });

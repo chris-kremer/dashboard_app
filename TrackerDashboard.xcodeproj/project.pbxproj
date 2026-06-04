@@ -16,6 +16,7 @@
 		A20000000000000000000007 /* CaffeineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CaffeineEntry.swift */; };
 		A20000000000000000000008 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
 		A20000000000000000000009 /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
+		A2000000000000000000002C /* FreeTimeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* FreeTimeEntry.swift */; };
 		A2000000000000000000000A /* TrackerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* TrackerSnapshot.swift */; };
 		A2000000000000000000000B /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* SyncState.swift */; };
 		A2000000000000000000000C /* TrackerRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* TrackerRequests.swift */; };
@@ -48,6 +49,7 @@
 		A30000000000000000000004 /* CaffeineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CaffeineEntry.swift */; };
 		A30000000000000000000005 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
 		A30000000000000000000006 /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
+		A30000000000000000000018 /* FreeTimeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* FreeTimeEntry.swift */; };
 		A30000000000000000000007 /* TrackerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* TrackerSnapshot.swift */; };
 		A30000000000000000000008 /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* SyncState.swift */; };
 		A30000000000000000000009 /* TrackerRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* TrackerRequests.swift */; };
@@ -101,6 +103,7 @@
 		A10000000000000000000007 /* CaffeineEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaffeineEntry.swift; sourceTree = "<group>"; };
 		A10000000000000000000008 /* FoodEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodEntry.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* SleepEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepEntry.swift; sourceTree = "<group>"; };
+		A1000000000000000000002F /* FreeTimeEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeTimeEntry.swift; sourceTree = "<group>"; };
 		A1000000000000000000000A /* TrackerSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerSnapshot.swift; sourceTree = "<group>"; };
 		A1000000000000000000000B /* SyncState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncState.swift; sourceTree = "<group>"; };
 		A1000000000000000000000C /* TrackerRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerRequests.swift; sourceTree = "<group>"; };
@@ -201,6 +204,7 @@
 				A10000000000000000000007 /* CaffeineEntry.swift */,
 				A10000000000000000000008 /* FoodEntry.swift */,
 				A10000000000000000000009 /* SleepEntry.swift */,
+				A1000000000000000000002F /* FreeTimeEntry.swift */,
 				A1000000000000000000000A /* TrackerSnapshot.swift */,
 				A1000000000000000000000B /* SyncState.swift */,
 				A1000000000000000000000C /* TrackerRequests.swift */,
@@ -391,6 +395,7 @@
 				A20000000000000000000007 /* CaffeineEntry.swift in Sources */,
 				A20000000000000000000008 /* FoodEntry.swift in Sources */,
 				A20000000000000000000009 /* SleepEntry.swift in Sources */,
+				A2000000000000000000002C /* FreeTimeEntry.swift in Sources */,
 				A2000000000000000000000A /* TrackerSnapshot.swift in Sources */,
 				A2000000000000000000000B /* SyncState.swift in Sources */,
 				A2000000000000000000000C /* TrackerRequests.swift in Sources */,
@@ -428,6 +433,7 @@
 				A30000000000000000000004 /* CaffeineEntry.swift in Sources */,
 				A30000000000000000000005 /* FoodEntry.swift in Sources */,
 				A30000000000000000000006 /* SleepEntry.swift in Sources */,
+				A30000000000000000000018 /* FreeTimeEntry.swift in Sources */,
 				A30000000000000000000007 /* TrackerSnapshot.swift in Sources */,
 				A30000000000000000000008 /* SyncState.swift in Sources */,
 				A30000000000000000000009 /* TrackerRequests.swift in Sources */,

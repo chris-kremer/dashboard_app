@@ -51,6 +51,16 @@ export interface SleepEntry {
   actualWake?: string;
 }
 
+export interface FreeTimeEntry {
+  id: string;
+  date: string;
+  label: string;
+  durationMinutes?: number;
+  time?: string;
+  start?: string;
+  end?: string;
+}
+
 export interface TrackerSnapshot {
   serverTime: string;
   date: string;
@@ -59,4 +69,5 @@ export interface TrackerSnapshot {
   caffeine: CaffeineEntry[];
   food: FoodEntry[];
   sleep: SleepEntry | null;
+  freeTime: FreeTimeEntry[];
 }

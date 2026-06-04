@@ -1,0 +1,11 @@
+name = "tracker-dashboard-worker"
+main = "src/index.ts"
+compatibility_date = "2026-06-04"
+
+[vars]
+VERSION = "1.0.0"
+SPREADSHEET_ID = "1U2EANvtDL1X2gOTcJInN84jSwrPPeddwjKiuFrt2Mtg"
+
+# Required secrets:
+# wrangler secret put APP_API_TOKEN
+# wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON

@@ -1,0 +1,6 @@
+.DS_Store
+DerivedData/
+xcuserdata/
+*.xcuserstate
+backend/worker/node_modules/
+.git.offloaded-broken-*

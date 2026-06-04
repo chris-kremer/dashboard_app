@@ -55,14 +55,49 @@ enum TaskIntentHelpers {
         try SharedCache.shared.appendPendingOperation(operation)
     }
 
-    static func resumedStartTime(for task: ScheduleItem?) -> String? {
-        guard let task,
-              let startedAt = task.dateTime(from: task.start),
-              let stoppedAt = task.dateTime(from: task.stop)
-        else {
-            return nil
+    static func continueTaskFromLoggedInterval(_ task: ScheduleItem) async throws {
+        let startTime = Date.trackerTimeFormatter.string(from: Date())
+        let createRequest = CreateTaskRequest(
+            date: task.date,
+            task: task.task,
+            category: task.category,
+            comment: task.comment,
+            priority: task.priority,
+            estimateMinutes: task.estimateMinutes
+        )
+        let archivePatch = TaskPatchRequest(
+            priority: nil,
+            estimateMinutes: nil,
+            comment: nil,
+            start: nil,
+            stop: nil,
+            status: .logged
+        )
+        let startPatch = TaskPatchRequest(
+            priority: nil,
+            estimateMinutes: nil,
+            comment: nil,
+            start: startTime,
+            stop: nil,
+            status: .inProgress,
+            clearsStop: true
+        )
+
+        var archived = task
+        archived.status = .logged
+        try SharedCache.shared.upsertTask(archived)
+        WidgetCenter.shared.reloadAllTimelines()
+
+        do {
+            let created = try await TrackerAPIClient.shared.createTask(createRequest)
+            let archivedServer = try await TrackerAPIClient.shared.updateTask(rowNumber: task.rowNumber, patch: archivePatch)
+            let startedServer = try await TrackerAPIClient.shared.updateTask(rowNumber: created.rowNumber, patch: startPatch)
+            try SharedCache.shared.upsertTask(archivedServer)
+            try SharedCache.shared.upsertTask(startedServer)
+            WidgetCenter.shared.reloadAllTimelines()
+        } catch {
+            try queue(kind: .startTask, payload: startPatch, error: error)
+            throw error
         }
-        let elapsed = max(0, stoppedAt.timeIntervalSince(startedAt))
-        return Date.trackerTimeFormatter.string(from: Date().addingTimeInterval(-elapsed))
     }
 }

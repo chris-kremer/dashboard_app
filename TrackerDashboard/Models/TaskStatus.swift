@@ -5,6 +5,7 @@ enum TaskStatus: String, Codable, CaseIterable, Identifiable {
     case inProgress = "in_progress"
     case done
     case cancelled
+    case logged
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum TaskStatus: String, Codable, CaseIterable, Identifiable {
         case .inProgress: "In Progress"
         case .done: "Done"
         case .cancelled: "Cancelled"
+        case .logged: "Logged"
         }
     }
 }

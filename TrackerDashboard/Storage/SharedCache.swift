@@ -33,7 +33,7 @@ final class SharedCache {
         snapshot.schedule.removeAll { $0.rowNumber == task.rowNumber }
         snapshot.schedule.append(task)
         snapshot.openTasks.removeAll { $0.rowNumber == task.rowNumber }
-        if task.status != .done && task.status != .cancelled {
+        if task.status != .done && task.status != .cancelled && task.status != .logged {
             snapshot.openTasks.append(task)
         }
         snapshot.openTasks.sort { ($0.adjustedPriority ?? -1, $0.priority ?? -1) > ($1.adjustedPriority ?? -1, $1.priority ?? -1) }

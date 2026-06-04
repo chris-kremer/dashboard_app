@@ -72,12 +72,16 @@ final class SyncController {
     }
 
     func startTask(_ task: ScheduleItem) async {
-        let startTime = resumedStartTime(for: task) ?? Date.trackerTimeFormatter.string(from: Date())
+        if task.start != nil && task.stop != nil {
+            await continueTaskFromLoggedInterval(task)
+            return
+        }
+
         let patch = TaskPatchRequest(
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
-            start: startTime,
+            start: Date.trackerTimeFormatter.string(from: Date()),
             stop: nil,
             status: .inProgress,
             clearsStop: true
@@ -154,13 +158,53 @@ final class SyncController {
         }
     }
 
-    private func resumedStartTime(for task: ScheduleItem) -> String? {
-        guard let startedAt = task.dateTime(from: task.start),
-              let stoppedAt = task.dateTime(from: task.stop)
-        else {
-            return nil
+    private func continueTaskFromLoggedInterval(_ task: ScheduleItem) async {
+        let startTime = Date.trackerTimeFormatter.string(from: Date())
+        let createRequest = CreateTaskRequest(
+            date: task.date,
+            task: task.task,
+            category: task.category,
+            comment: task.comment,
+            priority: task.priority,
+            estimateMinutes: task.estimateMinutes
+        )
+        let archivePatch = TaskPatchRequest(
+            priority: nil,
+            estimateMinutes: nil,
+            comment: nil,
+            start: nil,
+            stop: nil,
+            status: .logged
+        )
+        let startPatch = TaskPatchRequest(
+            priority: nil,
+            estimateMinutes: nil,
+            comment: nil,
+            start: startTime,
+            stop: nil,
+            status: .inProgress,
+            clearsStop: true
+        )
+
+        await perform(kind: .startTask, request: startPatch) {
+            var archived = task
+            archived.status = .logged
+            try cache.upsertTask(archived)
+
+            let created = try await apiClient.createTask(createRequest)
+            var optimistic = created
+            optimistic.start = startTime
+            optimistic.status = .inProgress
+            try cache.upsertTask(optimistic)
+            snapshot = cache.loadSnapshot() ?? snapshot
+            WidgetCenter.shared.reloadAllTimelines()
+
+            let archivedServer = try await apiClient.updateTask(rowNumber: task.rowNumber, patch: archivePatch)
+            try cache.upsertTask(archivedServer)
+            let startedServer = try await apiClient.updateTask(rowNumber: created.rowNumber, patch: startPatch)
+            try cache.upsertTask(startedServer)
+            snapshot = cache.loadSnapshot() ?? snapshot
+            WidgetCenter.shared.reloadAllTimelines()
         }
-        let elapsed = max(0, stoppedAt.timeIntervalSince(startedAt))
-        return Date.trackerTimeFormatter.string(from: Date().addingTimeInterval(-elapsed))
     }
 }

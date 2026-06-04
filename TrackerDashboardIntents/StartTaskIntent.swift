@@ -15,12 +15,18 @@ struct StartTaskIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        let task = TaskIntentHelpers.task(rowId: rowId)
+        if let task = TaskIntentHelpers.task(rowId: rowId),
+           task.start != nil,
+           task.stop != nil {
+            try await TaskIntentHelpers.continueTaskFromLoggedInterval(task)
+            return .result()
+        }
+
         let patch = TaskPatchRequest(
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
-            start: TaskIntentHelpers.resumedStartTime(for: task) ?? Date.trackerTimeFormatter.string(from: Date()),
+            start: Date.trackerTimeFormatter.string(from: Date()),
             stop: nil,
             status: .inProgress,
             clearsStop: true

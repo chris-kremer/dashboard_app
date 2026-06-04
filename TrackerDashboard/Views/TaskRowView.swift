@@ -124,7 +124,7 @@ struct TaskRowView: View {
                 await sync.completeTask(task)
             case .start:
                 await MainActor.run {
-                    startedAtOverride = resumedStartDate() ?? Date()
+                    startedAtOverride = Date()
                     stoppedAtOverride = nil
                 }
                 await sync.startTask(task)
@@ -215,16 +215,6 @@ struct TaskRowView: View {
             return "\(minutes)m \(suffix)"
         }
         return "\(minutes / 60)h \(minutes % 60)m \(suffix)"
-    }
-
-    private func resumedStartDate() -> Date? {
-        guard let startedAt = taskStartDate(),
-              let stoppedAt = stoppedAtOverride ?? task.dateTime(from: task.stop)
-        else {
-            return nil
-        }
-        let elapsed = max(0, stoppedAt.timeIntervalSince(startedAt))
-        return Date().addingTimeInterval(-elapsed)
     }
 
     private func animateDoneFill() async {

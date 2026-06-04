@@ -19,7 +19,7 @@ export interface ScheduleItem {
   actualMinutes?: number;
   start?: string;
   stop?: string;
-  status: "open" | "in_progress" | "done" | "cancelled";
+  status: "open" | "in_progress" | "done" | "cancelled" | "logged";
 }
 
 export interface CaffeineEntry {

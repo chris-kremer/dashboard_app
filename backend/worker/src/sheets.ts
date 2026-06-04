@@ -137,7 +137,7 @@ export function parseSchedule(rows: unknown[][], startRow = 2): ScheduleItem[] {
   return rows.map((row, index) => {
     const rowNumber = startRow + index;
     const rawStatus = String(cell(row, 11) || "").trim().toLowerCase();
-    const status: ScheduleItem["status"] = rawStatus === "done" || rawStatus === "cancelled" || rawStatus === "in_progress" ? rawStatus : "open";
+    const status: ScheduleItem["status"] = rawStatus === "done" || rawStatus === "cancelled" || rawStatus === "in_progress" || rawStatus === "logged" ? rawStatus : "open";
     return {
       rowId: `schedule:${rowNumber}`,
       rowNumber,
@@ -205,7 +205,7 @@ export function parseFreeTime(rows: unknown[][], startRow = 2): FreeTimeEntry[] 
 }
 
 export function isOpenTask(item: ScheduleItem): boolean {
-  return item.task.trim().length > 0 && item.status !== "done" && item.status !== "cancelled" && (!item.stop || item.status === "in_progress");
+  return item.task.trim().length > 0 && item.status !== "done" && item.status !== "cancelled" && item.status !== "logged" && (!item.stop || item.status === "in_progress");
 }
 
 export function normalizeDate(value: unknown): string {

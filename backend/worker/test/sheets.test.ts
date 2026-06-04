@@ -51,16 +51,18 @@ describe("sheet parsers", () => {
     expect(isOpenTask(task)).toBe(true);
   });
 
-  it("keeps paused tasks open but excludes completed and finished schedule rows", () => {
-    const [done, stopped, paused] = parseSchedule([
+  it("keeps paused tasks open but excludes completed, logged, and finished schedule rows", () => {
+    const [done, stopped, paused, logged] = parseSchedule([
       ["2026-06-04", "Task", "", "", "", "", "", "", "", "", "", "done"],
       ["2026-06-04", "Lecture", "Public Economics", "", 5, 90, 3, "", 90, "08:30", "10:00", ""],
-      ["2026-06-04", "Paused todo", "Admin", "", 4, 30, 8, "", "", "08:30", "08:45", "in_progress"]
+      ["2026-06-04", "Paused todo", "Admin", "", 4, 30, 8, "", "", "08:30", "08:45", "in_progress"],
+      ["2026-06-04", "Logged interval", "Admin", "", 4, 30, 8, "", "", "08:30", "08:45", "logged"]
     ]);
 
     expect(isOpenTask(done)).toBe(false);
     expect(isOpenTask(stopped)).toBe(false);
     expect(isOpenTask(paused)).toBe(true);
+    expect(isOpenTask(logged)).toBe(false);
   });
 
   it("parses caffeine, food, and sleep rows", () => {

@@ -19,6 +19,7 @@ struct StopTaskIntent: AppIntent {
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
+            delay: nil,
             start: nil,
             stop: Date.trackerTimeFormatter.string(from: Date()),
             status: .inProgress

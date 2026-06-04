@@ -69,6 +69,7 @@ enum TaskIntentHelpers {
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
+            delay: nil,
             start: nil,
             stop: nil,
             status: .logged
@@ -77,6 +78,7 @@ enum TaskIntentHelpers {
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
+            delay: nil,
             start: startTime,
             stop: nil,
             status: .inProgress,

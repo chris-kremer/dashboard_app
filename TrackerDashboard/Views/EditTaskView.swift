@@ -36,6 +36,7 @@ struct EditTaskView: View {
                             priority: priority,
                             estimateMinutes: estimate,
                             comment: comment.isEmpty ? nil : comment,
+                            delay: nil,
                             start: nil,
                             stop: nil,
                             status: nil

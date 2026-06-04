@@ -129,6 +129,7 @@ export function buildTaskPatchValues(rowNumber: number, body: any): Array<{ rang
   if ("comment" in body) cells.push([`D${rowNumber}`, body.comment ?? ""]);
   if ("priority" in body) cells.push([`E${rowNumber}`, body.priority ?? ""]);
   if ("estimateMinutes" in body) cells.push([`F${rowNumber}`, body.estimateMinutes ?? ""]);
+  if ("delay" in body) cells.push([`H${rowNumber}`, body.delay ?? ""]);
   if ("start" in body) cells.push([`J${rowNumber}`, body.start ?? ""]);
   if ("stop" in body) cells.push([`K${rowNumber}`, body.stop ?? ""]);
   if ("status" in body) cells.push([`L${rowNumber}`, body.status ?? ""]);
@@ -149,7 +150,7 @@ export function parseSchedule(rows: unknown[][], startRow = 2): ScheduleItem[] {
       comment: optionalString(cell(row, 3)),
       priority: optionalNumber(cell(row, 4)),
       estimateMinutes: optionalNumber(cell(row, 5)),
-      adjustedPriority: optionalNumber(cell(row, 6)),
+      adjustedPriority: effectiveAdjustedPriority(optionalNumber(cell(row, 6)), optionalString(cell(row, 7))),
       delay: optionalString(cell(row, 7)),
       actualMinutes: optionalNumber(cell(row, 8)),
       start: optionalTime(cell(row, 9)),
@@ -275,6 +276,11 @@ function serialDateToDate(serial: number): Date {
 
 function sortByAdjustedPriority(a: ScheduleItem, b: ScheduleItem): number {
   return (b.adjustedPriority ?? -1) - (a.adjustedPriority ?? -1) || (b.priority ?? -1) - (a.priority ?? -1);
+}
+
+function effectiveAdjustedPriority(adjustedPriority: number | undefined, delay: string | undefined): number | undefined {
+  if (delay && Date.parse(delay) > Date.now()) return 0;
+  return adjustedPriority;
 }
 
 function cell(row: unknown[], index: number): unknown {

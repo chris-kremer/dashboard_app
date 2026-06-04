@@ -23,6 +23,14 @@ struct TaskRowView: View {
         .sheet(isPresented: $editing) {
             EditTaskView(task: task)
         }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
+                Task { await sync.snoozeTask(task) }
+            } label: {
+                Label("2h", systemImage: "clock.arrow.circlepath")
+            }
+            .tint(.blue)
+        }
     }
 
     private var content: some View {

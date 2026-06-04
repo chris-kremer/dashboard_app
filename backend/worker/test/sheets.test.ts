@@ -66,6 +66,16 @@ describe("sheet parsers", () => {
     expect(isOpenTask(logged)).toBe(false);
   });
 
+  it("treats future delay as adjusted priority zero", () => {
+    const future = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const [task] = parseSchedule([
+      ["2026-06-04", "Snoozed", "Admin", "", 4, 15, 16, future]
+    ]);
+
+    expect(task.adjustedPriority).toBe(0);
+    expect(task.delay).toBe(future);
+  });
+
   it("parses caffeine, food, and sleep rows", () => {
     expect(parseCaffeine([["2026-06-04", "big coffee", "09:00"]])[0]).toMatchObject({
       id: "caffein:2",
@@ -113,11 +123,13 @@ describe("request mapping", () => {
       priority: 5,
       estimateMinutes: 30,
       comment: "updated from iOS",
+      delay: "2026-06-04T12:00:00.000Z",
       start: "14:15"
     })).toEqual([
       { range: "schedule!D12", values: [["updated from iOS"]] },
       { range: "schedule!E12", values: [[5]] },
       { range: "schedule!F12", values: [[30]] },
+      { range: "schedule!H12", values: [["2026-06-04T12:00:00.000Z"]] },
       { range: "schedule!J12", values: [["14:15"]] }
     ]);
   });

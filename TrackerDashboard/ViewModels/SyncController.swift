@@ -81,6 +81,7 @@ final class SyncController {
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
+            delay: nil,
             start: Date.trackerTimeFormatter.string(from: Date()),
             stop: nil,
             status: .inProgress,
@@ -94,9 +95,31 @@ final class SyncController {
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
+            delay: nil,
             start: nil,
             stop: Date.trackerTimeFormatter.string(from: Date()),
             status: .inProgress
+        )
+        await updateTask(rowNumber: task.rowNumber, patch: patch)
+    }
+
+    func snoozeTask(_ task: ScheduleItem, hours: Int = 2) async {
+        let until = ISO8601DateFormatter.tracker.string(from: Date().addingTimeInterval(TimeInterval(hours * 3600)))
+        var optimistic = task
+        optimistic.delay = until
+        optimistic.adjustedPriority = 0
+        try? cache.upsertTask(optimistic)
+        snapshot = cache.loadSnapshot() ?? snapshot
+        WidgetCenter.shared.reloadAllTimelines()
+
+        let patch = TaskPatchRequest(
+            priority: nil,
+            estimateMinutes: nil,
+            comment: nil,
+            delay: until,
+            start: nil,
+            stop: nil,
+            status: nil
         )
         await updateTask(rowNumber: task.rowNumber, patch: patch)
     }
@@ -172,6 +195,7 @@ final class SyncController {
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
+            delay: nil,
             start: nil,
             stop: nil,
             status: .logged
@@ -180,6 +204,7 @@ final class SyncController {
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
+            delay: nil,
             start: startTime,
             stop: nil,
             status: .inProgress,

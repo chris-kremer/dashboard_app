@@ -26,6 +26,7 @@ struct StartTaskIntent: AppIntent {
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
+            delay: nil,
             start: Date.trackerTimeFormatter.string(from: Date()),
             stop: nil,
             status: .inProgress,

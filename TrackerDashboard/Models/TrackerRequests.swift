@@ -13,6 +13,7 @@ struct TaskPatchRequest: Codable, Equatable {
     var priority: Int?
     var estimateMinutes: Int?
     var comment: String?
+    var delay: String?
     var start: String?
     var stop: String?
     var status: TaskStatus?
@@ -22,6 +23,7 @@ struct TaskPatchRequest: Codable, Equatable {
         case priority
         case estimateMinutes
         case comment
+        case delay
         case start
         case stop
         case status
@@ -32,6 +34,7 @@ struct TaskPatchRequest: Codable, Equatable {
         try container.encodeIfPresent(priority, forKey: .priority)
         try container.encodeIfPresent(estimateMinutes, forKey: .estimateMinutes)
         try container.encodeIfPresent(comment, forKey: .comment)
+        try container.encodeIfPresent(delay, forKey: .delay)
         try container.encodeIfPresent(start, forKey: .start)
         if clearsStop {
             try container.encodeNil(forKey: .stop)

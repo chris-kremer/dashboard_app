@@ -92,17 +92,63 @@ struct TodayView: View {
     }
 
     private var quickActions: some View {
-        Grid(horizontalSpacing: 10, verticalSpacing: 10) {
-            GridRow {
-                Button { showingAddTask = true } label: { Label("Task", systemImage: "plus.circle") }
-                Button { showingCaffeine = true } label: { Label("Coffee", systemImage: "cup.and.saucer") }
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            quickActionButton(title: "Task", subtitle: "Add to-do", systemImage: "plus.circle.fill", tint: .blue) {
+                showingAddTask = true
             }
-            GridRow {
-                Button { showingFood = true } label: { Label("Meal", systemImage: "fork.knife") }
-                NavigationLink { SleepEditView() } label: { Label("Sleep", systemImage: "bed.double") }
+            quickActionButton(title: "Coffee", subtitle: "Caffeine", systemImage: "cup.and.saucer.fill", tint: .brown) {
+                showingCaffeine = true
             }
+            quickActionButton(title: "Meal", subtitle: "Food log", systemImage: "fork.knife.circle.fill", tint: .green) {
+                showingFood = true
+            }
+            NavigationLink {
+                SleepEditView()
+            } label: {
+                quickActionLabel(title: "Sleep", subtitle: "Night record", systemImage: "bed.double.fill", tint: .indigo)
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.bordered)
+        .padding(.vertical, 2)
+    }
+
+    private func quickActionButton(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            quickActionLabel(title: title, subtitle: subtitle, systemImage: systemImage, tint: tint)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func quickActionLabel(title: String, subtitle: String, systemImage: String, tint: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+        .padding(.horizontal, 12)
+        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(tint.opacity(0.18), lineWidth: 1)
+        }
     }
 
     private var topTasks: some View {

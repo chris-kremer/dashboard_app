@@ -21,7 +21,7 @@ struct StopTaskIntent: AppIntent {
             comment: nil,
             start: nil,
             stop: Date.trackerTimeFormatter.string(from: Date()),
-            status: nil
+            status: .inProgress
         )
         try await TaskIntentHelpers.patch(rowId: rowId, patch: patch, kind: .stopTask)
         return .result()

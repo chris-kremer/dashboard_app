@@ -29,8 +29,12 @@ enum TaskIntentHelpers {
             task.start = start
             task.status = patch.status ?? .inProgress
         }
+        if patch.clearsStop {
+            task.stop = nil
+        }
         if let stop = patch.stop {
             task.stop = stop
+            task.status = patch.status ?? task.status
         }
         try SharedCache.shared.upsertTask(task)
         WidgetCenter.shared.reloadAllTimelines()
@@ -49,5 +53,16 @@ enum TaskIntentHelpers {
         var operation = PendingOperation(kind: kind, payload: try TrackerJSON.encoder.encode(payload))
         operation.lastError = error.localizedDescription
         try SharedCache.shared.appendPendingOperation(operation)
+    }
+
+    static func resumedStartTime(for task: ScheduleItem?) -> String? {
+        guard let task,
+              let startedAt = task.dateTime(from: task.start),
+              let stoppedAt = task.dateTime(from: task.stop)
+        else {
+            return nil
+        }
+        let elapsed = max(0, stoppedAt.timeIntervalSince(startedAt))
+        return Date.trackerTimeFormatter.string(from: Date().addingTimeInterval(-elapsed))
     }
 }

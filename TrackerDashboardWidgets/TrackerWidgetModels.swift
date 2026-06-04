@@ -16,8 +16,10 @@ struct TrackerWidgetProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TrackerWidgetEntry>) -> Void) {
-        let refreshDate = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date().addingTimeInterval(1800)
-        completion(Timeline(entries: [entry()], policy: .after(refreshDate)))
+        let entry = entry()
+        let hasRunningTask = entry.snapshot.openTasks.contains { $0.start != nil && $0.stop == nil }
+        let interval = hasRunningTask ? 60 : 1800
+        completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(TimeInterval(interval)))))
     }
 
     private func entry() -> TrackerWidgetEntry {

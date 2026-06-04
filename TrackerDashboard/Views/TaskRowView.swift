@@ -64,8 +64,7 @@ struct TaskRowView: View {
 
             HStack {
                 actionButton(.done)
-                actionButton(.start)
-                actionButton(.stop)
+                startStopButton
                 if !compact {
                     Button {
                         editing = true
@@ -76,6 +75,11 @@ struct TaskRowView: View {
                 }
             }
         }
+    }
+
+    private var startStopButton: some View {
+        let action: TaskRowAction = isRunning ? .stop : .start
+        return actionButton(action)
     }
 
     private func actionButton(_ action: TaskRowAction) -> some View {
@@ -237,6 +241,13 @@ struct TaskRowView: View {
             }
         }
         try? await Task.sleep(for: .milliseconds(360))
+    }
+
+    private var isRunning: Bool {
+        if startedAtOverride != nil && stoppedAtOverride == nil {
+            return true
+        }
+        return task.start != nil && task.stop == nil
     }
 }
 

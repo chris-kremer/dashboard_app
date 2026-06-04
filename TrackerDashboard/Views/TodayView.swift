@@ -75,13 +75,8 @@ struct TodayView: View {
     private var nowNextCards: some View {
         SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
             VStack(spacing: 8) {
-                let current = viewModel.currentBlock(in: sync.snapshot, now: context.date)
-                compactStatusCard(
-                    title: "Now",
-                    systemImage: "clock",
-                    value: current.map(activeActivityText) ?? "No active block",
-                    detail: current?.category
-                )
+                let current = viewModel.currentBlocks(in: sync.snapshot, now: context.date)
+                currentActivitiesCard(current)
 
                 let next = viewModel.nextBlock(in: sync.snapshot, now: context.date)
                 compactStatusCard(
@@ -102,6 +97,53 @@ struct TodayView: View {
             return "\(item.task) since \(start)"
         }
         return item.task
+    }
+
+    private func currentActivitiesCard(_ items: [ScheduleItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(items.count > 1 ? "Now happening" : "Now", systemImage: "clock")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            if items.isEmpty {
+                Text("No active block")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ForEach(items.prefix(4)) { item in
+                    activeActivityRow(item)
+                }
+                if items.count > 4 {
+                    Text("+ \(items.count - 4) more")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func activeActivityRow(_ item: ScheduleItem) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Circle()
+                .fill(item.stop == nil ? Color.green : Color.blue)
+                .frame(width: 7, height: 7)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(activeActivityText(item))
+                    .font(.headline)
+                    .lineLimit(1)
+                if !item.category.isEmpty {
+                    Text(item.category)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
     }
 
     private func compactStatusCard(title: String, systemImage: String, value: String, detail: String?) -> some View {

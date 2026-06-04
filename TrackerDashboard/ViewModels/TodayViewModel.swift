@@ -9,24 +9,26 @@ final class TodayViewModel {
         self.now = now
     }
 
-    func currentBlock(in snapshot: TrackerSnapshot, now: Date = Date()) -> ScheduleItem? {
+    func currentBlocks(in snapshot: TrackerSnapshot, now: Date = Date()) -> [ScheduleItem] {
         let minutesNow = minutes(in: now)
         let runningItems = uniqueItems(snapshot.openTasks + snapshot.schedule)
             .filter { $0.start != nil && $0.stop == nil }
             .filter { $0.status != .done && $0.status != .cancelled }
-            .sorted { time($0.start ?? "00:00") > time($1.start ?? "00:00") }
+            .sorted { time($0.start ?? "00:00") < time($1.start ?? "00:00") }
 
-        if let running = runningItems.first {
-            return running
-        }
-
-        return snapshot.schedule
+        let scheduledItems = snapshot.schedule
             .filter { item in
                 guard let start = item.start, let stop = item.stop else { return false }
                 return time(start) <= minutesNow && minutesNow <= time(stop)
             }
+            .filter { $0.status != .cancelled }
             .sorted { time($0.stop ?? "23:59") < time($1.stop ?? "23:59") }
-            .first
+
+        return uniqueItems(runningItems + scheduledItems)
+    }
+
+    func currentBlock(in snapshot: TrackerSnapshot, now: Date = Date()) -> ScheduleItem? {
+        currentBlocks(in: snapshot, now: now).first
     }
 
     func nextBlock(in snapshot: TrackerSnapshot, now: Date = Date()) -> ScheduleItem? {

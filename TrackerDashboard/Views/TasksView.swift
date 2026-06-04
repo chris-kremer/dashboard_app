@@ -17,8 +17,8 @@ struct TasksView: View {
                 if tasks.isEmpty {
                     EmptyStateView(title: "No open tasks", systemImage: "checkmark.circle")
                 } else {
-                    ForEach(tasks) { task in
-                        TaskRowView(task: task)
+                    ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                        TaskRowView(task: task, rank: index + 1)
                             .listRowSeparator(.hidden)
                     }
                 }

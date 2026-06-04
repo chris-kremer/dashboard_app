@@ -17,6 +17,7 @@ struct DashboardCard<Content: View>: View {
 
 struct PriorityChip: View {
     let value: Int?
+    var colorValue: Int? = nil
 
     var body: some View {
         Text(value.map(String.init) ?? "-")
@@ -29,7 +30,7 @@ struct PriorityChip: View {
     }
 
     private var color: Color {
-        guard let value else { return .secondary }
+        guard let value = colorValue ?? value else { return .secondary }
         if value >= 8 { return .red }
         if value >= 5 { return .orange }
         if value >= 2 { return .blue }

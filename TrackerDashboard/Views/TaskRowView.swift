@@ -3,6 +3,7 @@ import SwiftUI
 struct TaskRowView: View {
     @Environment(SyncController.self) private var sync
     let task: ScheduleItem
+    var rank: Int?
     var compact = false
     @State private var editing = false
 
@@ -18,7 +19,7 @@ struct TaskRowView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 12)
-                    PriorityChip(value: task.adjustedPriority)
+                    PriorityChip(value: rank, colorValue: task.adjustedPriority)
                 }
 
                 if !compact, let comment = task.comment, !comment.isEmpty {

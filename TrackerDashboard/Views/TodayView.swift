@@ -19,7 +19,7 @@ struct TodayView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Today")
+            .navigationTitle("")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

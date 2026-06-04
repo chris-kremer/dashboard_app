@@ -61,9 +61,10 @@ struct TaskListWidgetView: View {
         ZStack(alignment: .leading) {
             if let progress = progressState(for: task) {
                 GeometryReader { proxy in
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(progress.color.opacity(0.32))
-                        .frame(width: proxy.size.width * progress.widthFraction)
+                    phaseFill(color: .green, fraction: progress.greenFraction, width: proxy.size.width)
+                    phaseFill(color: .yellow, fraction: progress.yellowFraction, width: proxy.size.width)
+                    phaseFill(color: .orange, fraction: progress.orangeFraction, width: proxy.size.width)
+                    phaseFill(color: .red, fraction: progress.redFraction, width: proxy.size.width)
                 }
             }
             HStack(spacing: 8) {
@@ -105,7 +106,13 @@ struct TaskListWidgetView: View {
         }
     }
 
-    private func progressState(for task: ScheduleItem) -> (widthFraction: Double, color: Color)? {
+    private func phaseFill(color: Color, fraction: Double, width: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(color.opacity(0.32))
+            .frame(width: width * fraction)
+    }
+
+    private func progressState(for task: ScheduleItem) -> (greenFraction: Double, yellowFraction: Double, orangeFraction: Double, redFraction: Double)? {
         guard let estimate = task.estimateMinutes,
               estimate > 0,
               let startedAt = task.dateTime(from: task.start)
@@ -114,18 +121,15 @@ struct TaskListWidgetView: View {
         }
         let effectiveNow = task.dateTime(from: task.stop) ?? entry.date
         let ratio = max(0, effectiveNow.timeIntervalSince(startedAt) / 60) / Double(estimate)
-        return (min(ratio, 1), progressColor(for: ratio))
+        return (
+            phaseFraction(ratio),
+            phaseFraction(ratio - 1),
+            phaseFraction(ratio - 2),
+            phaseFraction(ratio - 3)
+        )
     }
 
-    private func progressColor(for ratio: Double) -> Color {
-        if ratio <= 1 { return .green }
-        if ratio <= 2 { return Color(hue: interpolate(from: 0.33, to: 0.14, progress: ratio - 1), saturation: 0.82, brightness: 0.90) }
-        if ratio <= 3 { return Color(hue: interpolate(from: 0.14, to: 0.08, progress: ratio - 2), saturation: 0.88, brightness: 0.94) }
-        if ratio <= 4 { return Color(hue: interpolate(from: 0.08, to: 0.00, progress: ratio - 3), saturation: 0.88, brightness: 0.92) }
-        return .red
-    }
-
-    private func interpolate(from start: Double, to end: Double, progress: Double) -> Double {
-        start + ((end - start) * min(max(progress, 0), 1))
+    private func phaseFraction(_ value: Double) -> Double {
+        min(max(value, 0), 1)
     }
 }

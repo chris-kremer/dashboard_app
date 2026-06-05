@@ -15,6 +15,12 @@ struct ScheduleItem: Codable, Identifiable, Equatable {
     var start: String?
     var stop: String?
     var status: TaskStatus
+    var plannedStart: String?
+    var plannedStop: String?
+    var lane: String?
+    var source: String?
+    var sourceId: String?
+    var importedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "rowId"
@@ -31,6 +37,12 @@ struct ScheduleItem: Codable, Identifiable, Equatable {
         case start
         case stop
         case status
+        case plannedStart
+        case plannedStop
+        case lane
+        case source
+        case sourceId
+        case importedAt
     }
 }
 

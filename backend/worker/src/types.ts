@@ -20,6 +20,12 @@ export interface ScheduleItem {
   start?: string;
   stop?: string;
   status: "open" | "in_progress" | "done" | "cancelled" | "logged";
+  plannedStart?: string;
+  plannedStop?: string;
+  lane?: string;
+  source?: string;
+  sourceId?: string;
+  importedAt?: string;
 }
 
 export interface CaffeineEntry {

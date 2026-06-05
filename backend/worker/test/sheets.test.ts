@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  SHEET_RANGES,
   buildTaskPatchValues,
   isOpenTask,
   normalizeDate,
@@ -47,9 +48,54 @@ describe("sheet parsers", () => {
       actualMinutes: undefined,
       start: undefined,
       stop: undefined,
-      status: "open"
+      status: "open",
+      plannedStart: undefined,
+      plannedStop: undefined,
+      lane: undefined,
+      source: undefined,
+      sourceId: undefined,
+      importedAt: undefined
     });
     expect(isOpenTask(task)).toBe(true);
+  });
+
+  it("keeps planned schedule metadata in columns O through T separate from actual start/stop/status", () => {
+    const [task] = parseSchedule([[
+      "2026-06-05",
+      "Scholar pitch",
+      "Research",
+      "planned via morning import",
+      5,
+      90,
+      3,
+      "",
+      "",
+      "08:30",
+      "09:00",
+      "logged",
+      "",
+      "",
+      "10:15",
+      "11:45",
+      "Deep work",
+      "google-calendar",
+      "calendar-event-123",
+      "2026-06-05T06:00:00.000Z"
+    ]]);
+
+    expect(task.start).toBe("08:30");
+    expect(task.stop).toBe("09:00");
+    expect(task.status).toBe("logged");
+    expect(task.plannedStart).toBe("10:15");
+    expect(task.plannedStop).toBe("11:45");
+    expect(task.lane).toBe("Deep work");
+    expect(task.source).toBe("google-calendar");
+    expect(task.sourceId).toBe("calendar-event-123");
+    expect(task.importedAt).toBe("2026-06-05T06:00:00.000Z");
+  });
+
+  it("reads schedule rows through column T so planned metadata is available", () => {
+    expect(SHEET_RANGES.schedule).toBe("schedule!A2:T");
   });
 
   it("keeps paused tasks open but excludes completed, logged, and finished schedule rows", () => {
@@ -124,13 +170,25 @@ describe("request mapping", () => {
       estimateMinutes: 30,
       comment: "updated from iOS",
       delay: "2026-06-04T12:00:00.000Z",
-      start: "14:15"
+      start: "14:15",
+      plannedStart: "15:00",
+      plannedStop: "16:30",
+      lane: "Deep work",
+      source: "manual",
+      sourceId: "todoist-42",
+      importedAt: "2026-06-05T06:00:00.000Z"
     })).toEqual([
       { range: "schedule!D12", values: [["updated from iOS"]] },
       { range: "schedule!E12", values: [[5]] },
       { range: "schedule!F12", values: [[30]] },
       { range: "schedule!H12", values: [["2026-06-04T12:00:00.000Z"]] },
-      { range: "schedule!J12", values: [["14:15"]] }
+      { range: "schedule!J12", values: [["14:15"]] },
+      { range: "schedule!O12", values: [["15:00"]] },
+      { range: "schedule!P12", values: [["16:30"]] },
+      { range: "schedule!Q12", values: [["Deep work"]] },
+      { range: "schedule!R12", values: [["manual"]] },
+      { range: "schedule!S12", values: [["todoist-42"]] },
+      { range: "schedule!T12", values: [["2026-06-05T06:00:00.000Z"]] }
     ]);
   });
 

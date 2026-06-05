@@ -4,6 +4,14 @@ const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
+export const SHEET_RANGES = {
+  schedule: "schedule!A2:T",
+  caffeine: "caffein!A2:D",
+  food: "foodtracker!A2:H",
+  sleep: "sleep!A2:G",
+  freeTime: "free_time!A2:F"
+} as const;
+
 let cachedToken: { token: string; expiresAt: number } | undefined;
 
 interface ServiceAccount {
@@ -45,7 +53,7 @@ export async function getAccessToken(env: Env): Promise<string> {
 }
 
 export async function readSnapshot(env: Env, date: string): Promise<TrackerSnapshot> {
-  const ranges = ["schedule!A2:N", "caffein!A2:D", "foodtracker!A2:H", "sleep!A2:G", "free_time!A2:F"];
+  const ranges = [SHEET_RANGES.schedule, SHEET_RANGES.caffeine, SHEET_RANGES.food, SHEET_RANGES.sleep, SHEET_RANGES.freeTime];
   const result = await sheetsGetBatch(env, ranges);
   const values = result.valueRanges ?? [];
   const allSchedule = parseSchedule(values[0]?.values ?? []);
@@ -133,6 +141,12 @@ export function buildTaskPatchValues(rowNumber: number, body: any): Array<{ rang
   if ("start" in body) cells.push([`J${rowNumber}`, body.start ?? ""]);
   if ("stop" in body) cells.push([`K${rowNumber}`, body.stop ?? ""]);
   if ("status" in body) cells.push([`L${rowNumber}`, body.status ?? ""]);
+  if ("plannedStart" in body) cells.push([`O${rowNumber}`, body.plannedStart ?? ""]);
+  if ("plannedStop" in body) cells.push([`P${rowNumber}`, body.plannedStop ?? ""]);
+  if ("lane" in body) cells.push([`Q${rowNumber}`, body.lane ?? ""]);
+  if ("source" in body) cells.push([`R${rowNumber}`, body.source ?? ""]);
+  if ("sourceId" in body) cells.push([`S${rowNumber}`, body.sourceId ?? ""]);
+  if ("importedAt" in body) cells.push([`T${rowNumber}`, body.importedAt ?? ""]);
   return cells.map(([cellRef, value]) => ({ range: `schedule!${cellRef}`, values: [[value]] }));
 }
 
@@ -155,7 +169,13 @@ export function parseSchedule(rows: unknown[][], startRow = 2): ScheduleItem[] {
       actualMinutes: optionalNumber(cell(row, 8)),
       start: optionalTime(cell(row, 9)),
       stop: optionalTime(cell(row, 10)),
-      status
+      status,
+      plannedStart: optionalTime(cell(row, 14)),
+      plannedStop: optionalTime(cell(row, 15)),
+      lane: optionalString(cell(row, 16)),
+      source: optionalString(cell(row, 17)),
+      sourceId: optionalString(cell(row, 18)),
+      importedAt: optionalString(cell(row, 19))
     };
   }).filter(item => item.task.trim().length > 0);
 }
@@ -288,7 +308,7 @@ function cell(row: unknown[], index: number): unknown {
 }
 
 async function readScheduleRow(env: Env, rowNumber: number): Promise<ScheduleItem> {
-  const result = await sheetsGet(env, `schedule!A${rowNumber}:N${rowNumber}`);
+  const result = await sheetsGet(env, `schedule!A${rowNumber}:T${rowNumber}`);
   return parseSchedule(result.values ?? [], rowNumber)[0];
 }
 

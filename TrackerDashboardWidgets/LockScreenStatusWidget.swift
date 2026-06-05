@@ -11,7 +11,15 @@ struct LockScreenStatusWidget: Widget {
         }
         .configurationDisplayName("Tracker Status")
         .description("Shows open task count or top task on the Lock Screen.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular])
+        .supportedFamilies(Self.supportedFamilies)
+    }
+
+    private static var supportedFamilies: [WidgetFamily] {
+#if os(macOS)
+        [.systemSmall]
+#else
+        [.accessoryCircular, .accessoryRectangular]
+#endif
     }
 }
 
@@ -39,6 +47,22 @@ struct LockScreenStatusWidgetView: View {
     }
 
     var body: some View {
+#if os(macOS)
+        VStack(alignment: .leading, spacing: 8) {
+            Gauge(value: completion.fraction, in: 0...1) {
+                Text("Done")
+            } currentValueLabel: {
+                Text("\(completion.percent)%")
+            }
+            Text("\(completion.finished)/\(completion.total) tasks")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(topTask?.task ?? "No open tasks")
+                .font(.caption.weight(.semibold))
+                .lineLimit(2)
+        }
+        .padding()
+#else
         switch family {
         case .accessoryCircular:
             Gauge(value: completion.fraction, in: 0...1) {
@@ -59,6 +83,7 @@ struct LockScreenStatusWidgetView: View {
                     .lineLimit(1)
             }
         }
+#endif
     }
 
     private func isFinished(_ item: ScheduleItem) -> Bool {

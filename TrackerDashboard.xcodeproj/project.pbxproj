@@ -67,6 +67,7 @@
 		A30000000000000000000015 /* TaskListWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* TaskListWidget.swift */; };
 		A30000000000000000000016 /* LockScreenStatusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000028 /* LockScreenStatusWidget.swift */; };
 		A30000000000000000000017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* Assets.xcassets */; };
+		B20000000000000000000020 /* TrackerDashboardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* TrackerDashboardWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 
 		B20000000000000000000001 /* TrackerDashboardMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* TrackerDashboardMacApp.swift */; };
 		B20000000000000000000002 /* MacRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* MacRootView.swift */; };
@@ -109,6 +110,13 @@
 			remoteGlobalIDString = A00000000000000000000005;
 			remoteInfo = TrackerDashboardWidgets;
 		};
+		B40000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A00000000000000000000005;
+			remoteInfo = TrackerDashboardWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -119,6 +127,17 @@
 			dstSubfolderSpec = 13;
 			files = (
 				A20000000000000000000023 /* TrackerDashboardWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B00000000000000000000006 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B20000000000000000000020 /* TrackerDashboardWidgets.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -392,10 +411,12 @@
 				B00000000000000000000001 /* Sources */,
 				B00000000000000000000002 /* Frameworks */,
 				B00000000000000000000003 /* Resources */,
+				B00000000000000000000006 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B50000000000000000000001 /* PBXTargetDependency */,
 			);
 			name = TrackerDashboardMac;
 			productName = TrackerDashboardMac;
@@ -589,6 +610,11 @@
 			target = A00000000000000000000005 /* TrackerDashboardWidgets */;
 			targetProxy = A40000000000000000000001 /* PBXContainerItemProxy */;
 		};
+		B50000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A00000000000000000000005 /* TrackerDashboardWidgets */;
+			targetProxy = B40000000000000000000001 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -732,10 +758,11 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.chriskremer.TrackerDashboard.widgets;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.chriskremer.TrackerDashboard.mac.widgets;
 				PRODUCT_BUNDLE_PACKAGE_TYPE = "XPC!";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -759,10 +786,11 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.chriskremer.TrackerDashboard.widgets;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.chriskremer.TrackerDashboard.mac.widgets;
 				PRODUCT_BUNDLE_PACKAGE_TYPE = "XPC!";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

@@ -31,6 +31,13 @@ struct TaskRowView: View {
             }
             .tint(.blue)
         }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                Task { await sync.deleteTask(task) }
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 
     private var content: some View {

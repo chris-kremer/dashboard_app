@@ -124,6 +124,25 @@ final class SyncController {
         await updateTask(rowNumber: task.rowNumber, patch: patch)
     }
 
+    func deleteTask(_ task: ScheduleItem) async {
+        var optimistic = task
+        optimistic.status = .cancelled
+        try? cache.upsertTask(optimistic)
+        snapshot = cache.loadSnapshot() ?? snapshot
+        WidgetCenter.shared.reloadAllTimelines()
+
+        let patch = TaskPatchRequest(
+            priority: nil,
+            estimateMinutes: nil,
+            comment: nil,
+            delay: nil,
+            start: nil,
+            stop: nil,
+            status: .cancelled
+        )
+        await updateTask(rowNumber: task.rowNumber, patch: patch)
+    }
+
     func logCaffeine(_ request: CaffeineRequest) async {
         await perform(kind: .logCaffeine, request: request) {
             _ = try await apiClient.logCaffeine(request)

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TimelineView: View {
     @Environment(SyncController.self) private var sync
+    @State private var selectedTask: ScheduleItem?
 
     private var entries: [TimelineEntry] {
         var result = sync.snapshot.schedule.compactMap(TimelineEntry.schedule)
@@ -24,7 +25,9 @@ struct TimelineView: View {
                             .padding(.top, 40)
                     } else {
                         SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
-                            TimelineScaleView(entries: entries, now: context.date)
+                            TimelineScaleView(entries: entries, now: context.date) { task in
+                                selectedTask = task
+                            }
                         }
                     }
                 }
@@ -33,6 +36,9 @@ struct TimelineView: View {
                 .padding(.bottom, 32)
             }
             .background(Color(.systemGroupedBackground))
+            .sheet(item: $selectedTask) { task in
+                EditTaskView(task: task)
+            }
         }
     }
 }
@@ -40,6 +46,7 @@ struct TimelineView: View {
 private struct TimelineScaleView: View {
     let entries: [TimelineEntry]
     let now: Date
+    let onSelectTask: (ScheduleItem) -> Void
 
     private let hourHeight: CGFloat = 58
     private let labelWidth: CGFloat = 52
@@ -53,7 +60,7 @@ private struct TimelineScaleView: View {
                 ZStack(alignment: .topLeading) {
                     grid
                     ForEach(layoutEntries(width: safeWidth)) { item in
-                        TimelineBlockView(entry: item.entry)
+                        timelineBlock(item.entry)
                             .frame(width: item.width, height: item.height)
                             .offset(x: item.x, y: yOffset(for: item.entry.startMinute))
                     }
@@ -65,6 +72,21 @@ private struct TimelineScaleView: View {
         }
         .padding(14)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func timelineBlock(_ entry: TimelineEntry) -> some View {
+        if let task = entry.task {
+            Button {
+                onSelectTask(task)
+            } label: {
+                TimelineBlockView(entry: entry)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open \(task.task)")
+        } else {
+            TimelineBlockView(entry: entry)
+        }
     }
 
     private var timeLabels: some View {
@@ -203,6 +225,7 @@ private struct TimelineEntry: Identifiable {
     let startMinute: Int
     let endMinute: Int
     let kind: Kind
+    let task: ScheduleItem?
 
     var durationMinutes: Int { max(1, endMinute - startMinute) }
     var color: Color { kind.color }
@@ -222,7 +245,8 @@ private struct TimelineEntry: Identifiable {
             subtitle: item.category,
             startMinute: start,
             endMinute: min(max(end, start + 1), 24 * 60),
-            kind: .schedule(task: item.task, category: item.category)
+            kind: .schedule(task: item.task, category: item.category),
+            task: item
         )
     }
 
@@ -235,7 +259,8 @@ private struct TimelineEntry: Identifiable {
             subtitle: item.sleepHours.map { String(format: "%.1fh", $0) } ?? "",
             startMinute: start,
             endMinute: max(end, start + 30),
-            kind: .sleep
+            kind: .sleep,
+            task: nil
         )
     }
 
@@ -250,7 +275,8 @@ private struct TimelineEntry: Identifiable {
             subtitle: "Free time",
             startMinute: start,
             endMinute: min(max(end ?? fallbackEnd, start + 1), 24 * 60),
-            kind: .freeTime
+            kind: .freeTime,
+            task: nil
         )
     }
 

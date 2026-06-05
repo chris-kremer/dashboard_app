@@ -19,32 +19,52 @@ struct LockScreenStatusWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: TrackerWidgetEntry
 
+    private var completion: (finished: Int, total: Int, percent: Int, fraction: Double) {
+        let items = entry.snapshot.schedule.filter { item in
+            item.date == entry.snapshot.date
+                && !item.task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && item.status != .cancelled
+        }
+        let finished = items.filter(isFinished).count
+        let total = items.count
+        let fraction = total == 0 ? 0 : Double(finished) / Double(total)
+        return (finished, total, Int((fraction * 100).rounded()), fraction)
+    }
+
     private var topTask: ScheduleItem? {
-        entry.snapshot.openTasks.sorted { ($0.adjustedPriority ?? -1) > ($1.adjustedPriority ?? -1) }.first
+        entry.snapshot.openTasks
+            .filter { $0.date == entry.snapshot.date }
+            .sorted { ($0.adjustedPriority ?? -1) > ($1.adjustedPriority ?? -1) }
+            .first
     }
 
     var body: some View {
         switch family {
         case .accessoryCircular:
-            Gauge(value: Double(entry.snapshot.openTasks.count), in: 0...20) {
-                Image(systemName: "checklist")
+            Gauge(value: completion.fraction, in: 0...1) {
+                Image(systemName: "chart.pie.fill")
             } currentValueLabel: {
-                Text("\(entry.snapshot.openTasks.count)")
+                Text("\(completion.percent)%")
             }
             .gaugeStyle(.accessoryCircular)
         default:
             VStack(alignment: .leading) {
-                Text(topTask?.task ?? "No open tasks")
+                Text("\(completion.percent)% done")
                     .font(.headline)
                     .lineLimit(1)
-                if let start = entry.snapshot.schedule.first(where: { $0.start != nil })?.start {
-                    Text("Next \(start)")
-                        .font(.caption)
-                } else {
-                    Text("\(entry.snapshot.openTasks.count) open")
-                        .font(.caption)
-                }
+                Text("\(completion.finished)/\(completion.total) tasks")
+                    .font(.caption)
+                Text(topTask?.task ?? "No open tasks")
+                    .font(.caption2)
+                    .lineLimit(1)
             }
         }
+    }
+
+    private func isFinished(_ item: ScheduleItem) -> Bool {
+        item.status == .done
+            || item.status == .logged
+            || item.stop != nil
+            || item.actualMinutes != nil
     }
 }

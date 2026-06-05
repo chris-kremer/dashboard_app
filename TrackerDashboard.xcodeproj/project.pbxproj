@@ -67,6 +67,38 @@
 		A30000000000000000000015 /* TaskListWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* TaskListWidget.swift */; };
 		A30000000000000000000016 /* LockScreenStatusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000028 /* LockScreenStatusWidget.swift */; };
 		A30000000000000000000017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* Assets.xcassets */; };
+
+		B20000000000000000000001 /* TrackerDashboardMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* TrackerDashboardMacApp.swift */; };
+		B20000000000000000000002 /* MacRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* MacRootView.swift */; };
+		B20000000000000000000003 /* TrackerAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* TrackerAPIClient.swift */; };
+		B20000000000000000000004 /* SyncController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* SyncController.swift */; };
+		B20000000000000000000005 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* TodayViewModel.swift */; };
+		B20000000000000000000006 /* TaskStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TaskStatus.swift */; };
+		B20000000000000000000007 /* ScheduleItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* ScheduleItem.swift */; };
+		B20000000000000000000008 /* CaffeineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CaffeineEntry.swift */; };
+		B20000000000000000000009 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
+		B2000000000000000000000A /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
+		B2000000000000000000000B /* FreeTimeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* FreeTimeEntry.swift */; };
+		B2000000000000000000000C /* TrackerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* TrackerSnapshot.swift */; };
+		B2000000000000000000000D /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* SyncState.swift */; };
+		B2000000000000000000000E /* TrackerRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* TrackerRequests.swift */; };
+		B2000000000000000000000F /* TrackerJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000D /* TrackerJSON.swift */; };
+		B20000000000000000000010 /* SharedCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000E /* SharedCache.swift */; };
+		B20000000000000000000011 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* KeychainStore.swift */; };
+		B20000000000000000000012 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* AppSettings.swift */; };
+		B20000000000000000000013 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* SharedViews.swift */; };
+		B20000000000000000000014 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* TodayView.swift */; };
+		B20000000000000000000015 /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* TasksView.swift */; };
+		B20000000000000000000016 /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* TaskRowView.swift */; };
+		B20000000000000000000017 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* TimelineView.swift */; };
+		B20000000000000000000018 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* InsightsView.swift */; };
+		B20000000000000000000019 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* SettingsView.swift */; };
+		B2000000000000000000001A /* AddTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* AddTaskView.swift */; };
+		B2000000000000000000001B /* EditTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* EditTaskView.swift */; };
+		B2000000000000000000001C /* LogCaffeineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001B /* LogCaffeineView.swift */; };
+		B2000000000000000000001D /* LogFoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* LogFoodView.swift */; };
+		B2000000000000000000001E /* SleepEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* SleepEditView.swift */; };
+		B2000000000000000000001F /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -141,6 +173,11 @@
 		A1000000000000000000002C /* TrackerDashboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerDashboard.entitlements; sourceTree = "<group>"; };
 		A1000000000000000000002D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000000000000000000002E /* TrackerDashboardWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerDashboardWidgets.entitlements; sourceTree = "<group>"; };
+		B10000000000000000000001 /* TrackerDashboardMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerDashboardMacApp.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* MacRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacRootView.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000004 /* TrackerDashboardMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerDashboardMac.entitlements; sourceTree = "<group>"; };
+		B10000000000000000000005 /* TrackerDashboardMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrackerDashboardMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -152,6 +189,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A0000000000000000000000C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		B00000000000000000000002 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -176,6 +221,7 @@
 			children = (
 				A1000000000000000000002A /* TrackerDashboard.app */,
 				A10000000000000000000023 /* TrackerDashboardWidgets.appex */,
+				B10000000000000000000005 /* TrackerDashboardMac.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -184,6 +230,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000001 /* TrackerDashboardApp.swift */,
+				B00000000000000000000004 /* Mac */,
 				A00000000000000000000011 /* Models */,
 				A00000000000000000000012 /* Networking */,
 				A00000000000000000000013 /* Storage */,
@@ -286,6 +333,18 @@
 			path = TrackerDashboardWidgets;
 			sourceTree = "<group>";
 		};
+
+		B00000000000000000000004 /* Mac */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* TrackerDashboardMacApp.swift */,
+				B10000000000000000000002 /* MacRootView.swift */,
+				B10000000000000000000003 /* Info.plist */,
+				B10000000000000000000004 /* TrackerDashboardMac.entitlements */,
+			);
+			path = Mac;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -325,6 +384,24 @@
 			productReference = A10000000000000000000023 /* TrackerDashboardWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+
+		B00000000000000000000005 /* TrackerDashboardMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B70000000000000000000001 /* Build configuration list for PBXNativeTarget "TrackerDashboardMac" */;
+			buildPhases = (
+				B00000000000000000000001 /* Sources */,
+				B00000000000000000000002 /* Frameworks */,
+				B00000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TrackerDashboardMac;
+			productName = TrackerDashboardMac;
+			productReference = B10000000000000000000005 /* TrackerDashboardMac.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -339,6 +416,9 @@
 						CreatedOnToolsVersion = 16.2;
 					};
 					A00000000000000000000005 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					B00000000000000000000005 = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
@@ -358,6 +438,7 @@
 			targets = (
 				A00000000000000000000004 /* TrackerDashboard */,
 				A00000000000000000000005 /* TrackerDashboardWidgets */,
+				B00000000000000000000005 /* TrackerDashboardMac */,
 			);
 		};
 /* End PBXProject section */
@@ -376,6 +457,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				A30000000000000000000017 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		B00000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2000000000000000000001F /* Resources/Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -450,6 +540,44 @@
 				A30000000000000000000014 /* TopTaskWidget.swift in Sources */,
 				A30000000000000000000015 /* TaskListWidget.swift in Sources */,
 				A30000000000000000000016 /* LockScreenStatusWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		B00000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000000000000000000001 /* TrackerDashboardMacApp.swift in Sources */,
+				B20000000000000000000002 /* MacRootView.swift in Sources */,
+				B20000000000000000000003 /* TrackerAPIClient.swift in Sources */,
+				B20000000000000000000004 /* SyncController.swift in Sources */,
+				B20000000000000000000005 /* TodayViewModel.swift in Sources */,
+				B20000000000000000000006 /* TaskStatus.swift in Sources */,
+				B20000000000000000000007 /* ScheduleItem.swift in Sources */,
+				B20000000000000000000008 /* CaffeineEntry.swift in Sources */,
+				B20000000000000000000009 /* FoodEntry.swift in Sources */,
+				B2000000000000000000000A /* SleepEntry.swift in Sources */,
+				B2000000000000000000000B /* FreeTimeEntry.swift in Sources */,
+				B2000000000000000000000C /* TrackerSnapshot.swift in Sources */,
+				B2000000000000000000000D /* SyncState.swift in Sources */,
+				B2000000000000000000000E /* TrackerRequests.swift in Sources */,
+				B2000000000000000000000F /* TrackerJSON.swift in Sources */,
+				B20000000000000000000010 /* SharedCache.swift in Sources */,
+				B20000000000000000000011 /* KeychainStore.swift in Sources */,
+				B20000000000000000000012 /* AppSettings.swift in Sources */,
+				B20000000000000000000013 /* SharedViews.swift in Sources */,
+				B20000000000000000000014 /* TodayView.swift in Sources */,
+				B20000000000000000000015 /* TasksView.swift in Sources */,
+				B20000000000000000000016 /* TaskRowView.swift in Sources */,
+				B20000000000000000000017 /* TimelineView.swift in Sources */,
+				B20000000000000000000018 /* InsightsView.swift in Sources */,
+				B20000000000000000000019 /* SettingsView.swift in Sources */,
+				B2000000000000000000001A /* AddTaskView.swift in Sources */,
+				B2000000000000000000001B /* EditTaskView.swift in Sources */,
+				B2000000000000000000001C /* LogCaffeineView.swift in Sources */,
+				B2000000000000000000001D /* LogFoodView.swift in Sources */,
+				B2000000000000000000001E /* SleepEditView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -641,6 +769,65 @@
 			};
 			name = Release;
 		};
+
+		B60000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TrackerDashboard/Mac/TrackerDashboardMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Y6786ATMVK;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TrackerDashboard/Mac/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chriskremer.TrackerDashboard.mac;
+				PRODUCT_BUNDLE_PACKAGE_TYPE = APPL;
+				PRODUCT_NAME = "Tracker Dashboard";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B60000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TrackerDashboard/Mac/TrackerDashboardMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Y6786ATMVK;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TrackerDashboard/Mac/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chriskremer.TrackerDashboard.mac;
+				PRODUCT_BUNDLE_PACKAGE_TYPE = APPL;
+				PRODUCT_NAME = "Tracker Dashboard";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -667,6 +854,16 @@
 			buildConfigurations = (
 				A60000000000000000000005 /* Debug */,
 				A60000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+
+		B70000000000000000000001 /* Build configuration list for PBXNativeTarget "TrackerDashboardMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B60000000000000000000001 /* Debug */,
+				B60000000000000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

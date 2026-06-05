@@ -35,7 +35,7 @@ struct TimelineView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 32)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.trackerGroupedBackground)
             .sheet(item: $selectedTask) { task in
                 EditTaskView(task: task)
             }

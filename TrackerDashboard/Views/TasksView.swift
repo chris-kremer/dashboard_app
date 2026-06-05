@@ -28,12 +28,21 @@ struct TasksView: View {
             .listStyle(.plain)
             .navigationTitle("Tasks")
             .toolbar {
+#if os(iOS)
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingAddTask = true } label: {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel("Add task")
                 }
+#else
+                ToolbarItem {
+                    Button { showingAddTask = true } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add task")
+                }
+#endif
             }
             .sheet(isPresented: $showingAddTask) { AddTaskView() }
         }

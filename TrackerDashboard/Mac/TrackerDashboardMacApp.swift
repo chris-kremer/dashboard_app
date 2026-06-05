@@ -1,23 +1,18 @@
 import SwiftUI
 
 @main
-struct TrackerDashboardApp: App {
+struct TrackerDashboardMacApp: App {
     @State private var syncController = SyncController.shared
-
-    init() {
-#if os(iOS)
-        SyncController.shared.registerBackgroundRefresh()
-        SyncController.shared.scheduleBackgroundRefresh()
-#endif
-    }
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            MacRootView()
                 .environment(syncController)
+                .frame(minWidth: 1040, minHeight: 720)
                 .task {
                     await syncController.refresh()
                 }
         }
+        .windowResizability(.contentMinSize)
     }
 }

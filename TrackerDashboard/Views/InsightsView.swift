@@ -127,7 +127,7 @@ struct InsightsView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 32)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.trackerGroupedBackground)
         }
     }
 
@@ -316,7 +316,7 @@ private struct CompletedTasksDetailView: View {
             }
         }
         .navigationTitle("Completed")
-        .navigationBarTitleDisplayMode(.inline)
+        .trackerInlineNavigationTitle()
     }
 }
 
@@ -346,7 +346,7 @@ private struct UrgentTasksDetailView: View {
             }
         }
         .navigationTitle("Urgent Done")
-        .navigationBarTitleDisplayMode(.inline)
+        .trackerInlineNavigationTitle()
     }
 }
 
@@ -420,7 +420,7 @@ private struct CaffeineDetailView: View {
             }
         }
         .navigationTitle("Coffee")
-        .navigationBarTitleDisplayMode(.inline)
+        .trackerInlineNavigationTitle()
     }
 }
 
@@ -469,7 +469,7 @@ private struct FoodDetailView: View {
             }
         }
         .navigationTitle("Food")
-        .navigationBarTitleDisplayMode(.inline)
+        .trackerInlineNavigationTitle()
     }
 }
 
@@ -492,7 +492,7 @@ private struct SleepDetailView: View {
             }
         }
         .navigationTitle("Sleep")
-        .navigationBarTitleDisplayMode(.inline)
+        .trackerInlineNavigationTitle()
     }
 
     private func sleepRow(_ title: String, _ value: String, _ systemImage: String) -> some View {

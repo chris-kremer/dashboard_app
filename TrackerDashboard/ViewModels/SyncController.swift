@@ -1,7 +1,11 @@
-import BackgroundTasks
 import Foundation
 import Observation
+#if os(iOS)
+import BackgroundTasks
+#endif
+#if canImport(WidgetKit)
 import WidgetKit
+#endif
 
 @MainActor
 @Observable
@@ -32,7 +36,7 @@ final class SyncController {
             syncState.lastSuccessfulSync = Date()
             syncState.lastError = nil
             try cache.saveSyncState(syncState)
-            WidgetCenter.shared.reloadAllTimelines()
+            reloadWidgets()
         } catch {
             syncState.lastError = error.localizedDescription
             try? cache.saveSyncState(syncState)
@@ -52,7 +56,7 @@ final class SyncController {
             let item = try await apiClient.updateTask(rowNumber: rowNumber, patch: patch)
             try cache.upsertTask(item)
             snapshot = cache.loadSnapshot() ?? snapshot
-            WidgetCenter.shared.reloadAllTimelines()
+            reloadWidgets()
         }
     }
 
@@ -61,13 +65,13 @@ final class SyncController {
         optimistic.status = .done
         try? cache.upsertTask(optimistic)
         snapshot = cache.loadSnapshot() ?? snapshot
-        WidgetCenter.shared.reloadAllTimelines()
+        reloadWidgets()
 
         await perform(kind: .completeTask, request: CompleteTaskRequest(source: source)) {
             let item = try await apiClient.completeTask(rowNumber: task.rowNumber, source: source)
             try cache.upsertTask(item)
             snapshot = cache.loadSnapshot() ?? snapshot
-            WidgetCenter.shared.reloadAllTimelines()
+            reloadWidgets()
         }
     }
 
@@ -110,7 +114,7 @@ final class SyncController {
         optimistic.adjustedPriority = 0
         try? cache.upsertTask(optimistic)
         snapshot = cache.loadSnapshot() ?? snapshot
-        WidgetCenter.shared.reloadAllTimelines()
+        reloadWidgets()
 
         let patch = TaskPatchRequest(
             priority: nil,
@@ -129,7 +133,7 @@ final class SyncController {
         optimistic.status = .cancelled
         try? cache.upsertTask(optimistic)
         snapshot = cache.loadSnapshot() ?? snapshot
-        WidgetCenter.shared.reloadAllTimelines()
+        reloadWidgets()
 
         let patch = TaskPatchRequest(
             priority: nil,
@@ -165,25 +169,31 @@ final class SyncController {
     }
 
     func registerBackgroundRefresh() {
+#if os(iOS)
         BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.chriskremer.TrackerDashboard.refresh", using: nil) { task in
             Task { @MainActor in
                 await self.handleBackgroundRefresh(task: task as! BGAppRefreshTask)
             }
         }
+#endif
     }
 
     func scheduleBackgroundRefresh() {
+#if os(iOS)
         let request = BGAppRefreshTaskRequest(identifier: "com.chriskremer.TrackerDashboard.refresh")
         request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval(AppSettings.shared.refreshIntervalMinutes * 60))
         try? BGTaskScheduler.shared.submit(request)
+#endif
     }
 
+#if os(iOS)
     private func handleBackgroundRefresh(task: BGAppRefreshTask) async {
         scheduleBackgroundRefresh()
         task.expirationHandler = { task.setTaskCompleted(success: false) }
         await refresh()
         task.setTaskCompleted(success: syncState.lastError == nil)
     }
+#endif
 
     private func perform<Request: Encodable>(
         kind: PendingOperation.Kind,
@@ -241,14 +251,20 @@ final class SyncController {
             optimistic.status = .inProgress
             try cache.upsertTask(optimistic)
             snapshot = cache.loadSnapshot() ?? snapshot
-            WidgetCenter.shared.reloadAllTimelines()
+            reloadWidgets()
 
             let archivedServer = try await apiClient.updateTask(rowNumber: task.rowNumber, patch: archivePatch)
             try cache.upsertTask(archivedServer)
             let startedServer = try await apiClient.updateTask(rowNumber: created.rowNumber, patch: startPatch)
             try cache.upsertTask(startedServer)
             snapshot = cache.loadSnapshot() ?? snapshot
-            WidgetCenter.shared.reloadAllTimelines()
+            reloadWidgets()
         }
+    }
+
+    private func reloadWidgets() {
+#if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+#endif
     }
 }

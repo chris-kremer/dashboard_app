@@ -73,7 +73,15 @@ final class SharedCache {
     }
 
     private func fileURL(_ fileName: String) -> URL? {
-        fileManager.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupIdentifier)?
+        if let appGroupURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupIdentifier) {
+            return appGroupURL.appendingPathComponent(fileName)
+        }
+
+        guard let supportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        return supportURL
+            .appendingPathComponent("TrackerDashboard", isDirectory: true)
             .appendingPathComponent(fileName)
     }
 }

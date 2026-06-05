@@ -1,5 +1,15 @@
 import SwiftUI
 
+extension Color {
+    static var trackerGroupedBackground: Color {
+#if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+#else
+        Color(.systemGroupedBackground)
+#endif
+    }
+}
+
 struct DashboardCard<Content: View>: View {
     let content: Content
 
@@ -45,5 +55,16 @@ struct EmptyStateView: View {
     var body: some View {
         ContentUnavailableView(title, systemImage: systemImage)
             .frame(maxWidth: .infinity)
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func trackerInlineNavigationTitle() -> some View {
+#if os(iOS)
+        self.navigationBarTitleDisplayMode(.inline)
+#else
+        self
+#endif
     }
 }

@@ -48,8 +48,7 @@ private struct AdvancedSettingsView: View {
         Form {
             Section("API") {
                 TextField("Base URL", text: $settings.apiBaseURL)
-                    .keyboardType(.URL)
-                    .textInputAutocapitalization(.never)
+                    .trackerURLInput()
                 SecureField("API token", text: $token)
                     .onSubmit { settings.apiToken = token }
                 Button("Save token") {
@@ -59,10 +58,32 @@ private struct AdvancedSettingsView: View {
 
             Section("Sheet") {
                 TextField("Spreadsheet ID", text: $settings.spreadsheetID)
-                    .textInputAutocapitalization(.never)
+                    .trackerPlainInput()
             }
         }
         .navigationTitle("Advanced")
-        .navigationBarTitleDisplayMode(.inline)
+        .trackerInlineNavigationTitle()
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func trackerURLInput() -> some View {
+#if os(iOS)
+        self
+            .keyboardType(.URL)
+            .textInputAutocapitalization(.never)
+#else
+        self
+#endif
+    }
+
+    @ViewBuilder
+    func trackerPlainInput() -> some View {
+#if os(iOS)
+        self.textInputAutocapitalization(.never)
+#else
+        self
+#endif
     }
 }

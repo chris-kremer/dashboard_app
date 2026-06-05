@@ -4,26 +4,26 @@ struct InsightsView: View {
     @Environment(SyncController.self) private var sync
 
     private var plannedMinutes: Int {
-        sync.snapshot.schedule.compactMap(\.estimateMinutes).reduce(0, +)
+        workloadItems.compactMap(\.estimateMinutes).reduce(0, +)
     }
 
     private var actualMinutes: Int {
-        sync.snapshot.schedule.compactMap(\.actualMinutes).reduce(0, +)
+        workloadItems.compactMap(\.actualMinutes).reduce(0, +)
     }
 
     private var completedTasks: Int {
-        sync.snapshot.schedule.filter { $0.status == .done }.count
+        completedTaskItems.count
     }
 
     private var completedTaskItems: [ScheduleItem] {
         sync.snapshot.schedule
-            .filter { $0.status == .done }
+            .filter(isCompletedForInsights)
             .sorted { ($0.start ?? "", $0.task) < ($1.start ?? "", $1.task) }
     }
 
     private var urgentCompletedItems: [ScheduleItem] {
         sync.snapshot.schedule
-            .filter { $0.status == .done && ($0.adjustedPriority ?? 0) >= 10 }
+            .filter { isCompletedForInsights($0) && ($0.adjustedPriority ?? 0) >= 10 }
             .sorted { ($0.adjustedPriority ?? -1, $0.task) > ($1.adjustedPriority ?? -1, $1.task) }
     }
 
@@ -52,6 +52,13 @@ struct InsightsView: View {
         return min(Double(actualMinutes) / Double(plannedMinutes), 1)
     }
 
+    private var workloadItems: [ScheduleItem] {
+        sync.snapshot.schedule
+            .filter { ($0.adjustedPriority ?? 0) > 2 }
+            .filter { $0.status != .cancelled }
+            .filter { $0.estimateMinutes != nil }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -68,7 +75,7 @@ struct InsightsView: View {
                             insightCard(
                                 title: "Completed",
                                 value: "\(completedTasks)",
-                                detail: "tasks closed",
+                                detail: "items finished",
                                 systemImage: "checkmark.circle.fill",
                                 tint: .green,
                                 showsDisclosure: true
@@ -81,7 +88,7 @@ struct InsightsView: View {
                             insightCard(
                                 title: "Urgent Done",
                                 value: "\(urgentCompletionPercent)%",
-                                detail: "\(urgentCompletedItems.count)/\(urgentKnownCount) AP 10+",
+                                detail: "\(urgentCompletedItems.count)/\(urgentKnownCount) AP 10+ finished",
                                 systemImage: "flame.fill",
                                 tint: urgentCompletionTint,
                                 showsDisclosure: true
@@ -250,10 +257,10 @@ struct InsightsView: View {
     }
 
     private var workloadHeadline: String {
-        if plannedMinutes == 0 { return "No planned workload yet" }
-        if actualMinutes == 0 { return "Planned day is waiting" }
-        if actualMinutes >= plannedMinutes { return "Planned work is covered" }
-        return "\(minutesLabel(plannedMinutes - actualMinutes)) left against plan"
+        if plannedMinutes == 0 { return "No priority workload yet" }
+        if actualMinutes == 0 { return "Priority work is waiting" }
+        if actualMinutes >= plannedMinutes { return "Priority workload is covered" }
+        return "\(minutesLabel(plannedMinutes - actualMinutes)) left on AP 3+ work"
     }
 
     private var workloadColor: Color {
@@ -279,6 +286,19 @@ struct InsightsView: View {
         let hours = minutes / 60
         let remainder = minutes % 60
         return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
+    }
+
+    private func isCompletedForInsights(_ item: ScheduleItem) -> Bool {
+        guard !item.task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return false
+        }
+        guard item.status != .cancelled else {
+            return false
+        }
+        return item.status == .done
+            || item.status == .logged
+            || item.stop != nil
+            || item.actualMinutes != nil
     }
 }
 

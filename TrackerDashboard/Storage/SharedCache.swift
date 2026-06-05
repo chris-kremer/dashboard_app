@@ -11,21 +11,19 @@ final class SharedCache {
     }
 
     func loadSnapshot() -> TrackerSnapshot? {
-        load(TrackerSnapshot.self, from: "snapshot.json") ?? loadFromDefaults(TrackerSnapshot.self, key: DefaultsKey.snapshot)
+        load(TrackerSnapshot.self, from: "snapshot.json")
     }
 
     func saveSnapshot(_ snapshot: TrackerSnapshot) throws {
         try save(snapshot, to: "snapshot.json")
-        saveToDefaults(snapshot, key: DefaultsKey.snapshot)
     }
 
     func loadSyncState() -> SyncState {
-        load(SyncState.self, from: "sync-state.json") ?? loadFromDefaults(SyncState.self, key: DefaultsKey.syncState) ?? .empty
+        load(SyncState.self, from: "sync-state.json") ?? .empty
     }
 
     func saveSyncState(_ state: SyncState) throws {
         try save(state, to: "sync-state.json")
-        saveToDefaults(state, key: DefaultsKey.syncState)
     }
 
     func upsertTask(_ task: ScheduleItem) throws {
@@ -61,7 +59,6 @@ final class SharedCache {
 
     private func save<T: Encodable>(_ value: T, to fileName: String) throws {
         guard let url = fileURL(fileName) else {
-            saveToDefaults(value, key: fileName == "snapshot.json" ? DefaultsKey.snapshot : DefaultsKey.syncState)
             return
         }
         let directoryURL = url.deletingLastPathComponent()
@@ -78,28 +75,5 @@ final class SharedCache {
     private func fileURL(_ fileName: String) -> URL? {
         fileManager.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupIdentifier)?
             .appendingPathComponent(fileName)
-    }
-
-    private func loadFromDefaults<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        guard let data = defaults?.data(forKey: key) else {
-            return nil
-        }
-        return try? TrackerJSON.decoder.decode(T.self, from: data)
-    }
-
-    private func saveToDefaults<T: Encodable>(_ value: T, key: String) {
-        guard let data = try? TrackerJSON.encoder.encode(value) else {
-            return
-        }
-        defaults?.set(data, forKey: key)
-    }
-
-    private var defaults: UserDefaults? {
-        UserDefaults(suiteName: Self.appGroupIdentifier)
-    }
-
-    private enum DefaultsKey {
-        static let snapshot = "shared-cache.snapshot"
-        static let syncState = "shared-cache.sync-state"
     }
 }

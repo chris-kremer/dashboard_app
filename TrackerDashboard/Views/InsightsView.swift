@@ -28,7 +28,7 @@ struct InsightsView: View {
     }
 
     private var urgentOpenItems: [ScheduleItem] {
-        sync.snapshot.openTasks
+        sync.snapshot.todayOpenTasks
             .filter { ($0.adjustedPriority ?? 0) >= 10 }
             .filter { item in !urgentCompletedItems.contains { $0.id == item.id } }
             .sorted { ($0.adjustedPriority ?? -1, $0.task) > ($1.adjustedPriority ?? -1, $1.task) }

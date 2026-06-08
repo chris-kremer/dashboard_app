@@ -26,6 +26,17 @@ struct TrackerSnapshot: Codable, Equatable {
     }
 }
 
+extension TrackerSnapshot {
+    var todayOpenTasks: [ScheduleItem] {
+        openTasks
+            .filter { $0.date == date }
+            .sorted {
+                ($0.adjustedPriority ?? -1, $0.priority ?? -1, $0.task) >
+                ($1.adjustedPriority ?? -1, $1.priority ?? -1, $1.task)
+            }
+    }
+}
+
 extension Date {
     static let trackerDateFormatter: DateFormatter = {
         let formatter = DateFormatter()

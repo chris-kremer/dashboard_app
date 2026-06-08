@@ -18,7 +18,7 @@ struct SettingsView: View {
                 Section("Sync Status") {
                     LabeledContent("Last sync", value: sync.syncState.lastSuccessfulSync?.formatted(date: .abbreviated, time: .shortened) ?? "Never")
                     LabeledContent("Pending writes", value: "\(sync.syncState.pendingOperations.count)")
-                    LabeledContent("Cached open tasks", value: "\(SharedCache.shared.loadSnapshot()?.openTasks.count ?? 0)")
+                    LabeledContent("Today open tasks", value: "\(SharedCache.shared.loadSnapshot()?.todayOpenTasks.count ?? 0)")
                     if let error = sync.syncState.lastError {
                         Text(error)
                             .foregroundStyle(.red)

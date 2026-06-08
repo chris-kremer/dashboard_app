@@ -5,12 +5,7 @@ struct TasksView: View {
     @State private var showingAddTask = false
 
     private var tasks: [ScheduleItem] {
-        sync.snapshot.openTasks
-            .filter { $0.date == sync.snapshot.date }
-            .sorted {
-            ($0.adjustedPriority ?? -1, $0.priority ?? -1) >
-            ($1.adjustedPriority ?? -1, $1.priority ?? -1)
-        }
+        sync.snapshot.todayOpenTasks
     }
 
     var body: some View {

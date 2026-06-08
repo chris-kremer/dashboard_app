@@ -82,7 +82,7 @@ struct TodayView: View {
                 compactStatusCard(
                     title: "Next",
                     systemImage: "arrow.forward.circle",
-                    value: next.map { "\($0.task) \($0.start ?? "")" } ?? "No upcoming block",
+                    value: next.map(nextActivityText) ?? "No upcoming block",
                     detail: next?.category
                 )
             }
@@ -95,6 +95,13 @@ struct TodayView: View {
         }
         if let start = item.start {
             return "\(item.task) since \(start)"
+        }
+        return item.task
+    }
+
+    private func nextActivityText(_ item: ScheduleItem) -> String {
+        if let start = item.start ?? item.plannedStart {
+            return "\(item.task) \(start)"
         }
         return item.task
     }

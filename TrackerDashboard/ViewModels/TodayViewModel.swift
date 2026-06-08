@@ -33,11 +33,14 @@ final class TodayViewModel {
 
     func nextBlock(in snapshot: TrackerSnapshot, now: Date = Date()) -> ScheduleItem? {
         let minutesNow = minutes(in: now)
+        let latestMinute = minutesNow + 12 * 60
         return snapshot.schedule
-            .filter { $0.start != nil && $0.stop != nil }
-            .filter { $0.status != .inProgress }
-            .filter { time($0.start ?? "00:00") > minutesNow }
-            .sorted { time($0.start ?? "00:00") < time($1.start ?? "00:00") }
+            .filter { $0.status != .done && $0.status != .cancelled && $0.status != .logged && $0.status != .inProgress }
+            .filter { item in
+                guard let start = startMinute(for: item) else { return false }
+                return start > minutesNow && start <= latestMinute
+            }
+            .sorted { (startMinute(for: $0) ?? 24 * 60) < (startMinute(for: $1) ?? 24 * 60) }
             .first
     }
 
@@ -58,6 +61,13 @@ final class TodayViewModel {
         let parts = value.split(separator: ":").compactMap { Int($0) }
         guard parts.count >= 2 else { return 0 }
         return parts[0] * 60 + parts[1]
+    }
+
+    private func startMinute(for item: ScheduleItem) -> Int? {
+        if let start = item.start ?? item.plannedStart {
+            return time(start)
+        }
+        return nil
     }
 
     private func uniqueItems(_ items: [ScheduleItem]) -> [ScheduleItem] {

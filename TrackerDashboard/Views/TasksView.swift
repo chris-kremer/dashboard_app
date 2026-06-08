@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TasksView: View {
     @Environment(SyncController.self) private var sync
+    @Environment(AppNavigation.self) private var navigation
     @State private var showingAddTask = false
 
     private var tasks: [ScheduleItem] {
@@ -40,6 +41,17 @@ struct TasksView: View {
 #endif
             }
             .sheet(isPresented: $showingAddTask) { AddTaskView() }
+            .sheet(item: selectedTaskBinding) { task in
+                EditTaskView(task: task)
+            }
+        }
+    }
+
+    private var selectedTaskBinding: Binding<ScheduleItem?> {
+        Binding {
+            navigation.selectedTask
+        } set: { task in
+            navigation.selectedTask = task
         }
     }
 }

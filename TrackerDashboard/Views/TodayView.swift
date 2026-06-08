@@ -1,7 +1,44 @@
 import SwiftUI
 
+enum TrackerSection: String, CaseIterable, Identifiable {
+    case today
+    case tasks
+    case timeline
+    case insights
+    case settings
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .today: "Today"
+        case .tasks: "Tasks"
+        case .timeline: "Timeline"
+        case .insights: "Insights"
+        case .settings: "Settings"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .today: "sun.max"
+        case .tasks: "checklist"
+        case .timeline: "calendar.day.timeline.left"
+        case .insights: "chart.bar.xaxis"
+        case .settings: "gearshape"
+        }
+    }
+}
+
+@Observable
+final class AppNavigation {
+    var selectedSection: TrackerSection = .today
+    var selectedTask: ScheduleItem?
+}
+
 struct TodayView: View {
     @Environment(SyncController.self) private var sync
+    @Environment(AppNavigation.self) private var navigation
     @State private var viewModel = TodayViewModel()
     @State private var showingAddTask = false
     @State private var showingCaffeine = false
@@ -134,23 +171,33 @@ struct TodayView: View {
     }
 
     private func activeActivityRow(_ item: ScheduleItem) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Circle()
-                .fill(item.stop == nil ? Color.green : Color.blue)
-                .frame(width: 7, height: 7)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(activeActivityText(item))
-                    .font(.headline)
-                    .lineLimit(1)
-                if !item.category.isEmpty {
-                    Text(item.category)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Button {
+            navigation.selectedSection = .tasks
+            navigation.selectedTask = item
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Circle()
+                    .fill(item.stop == nil ? Color.green : Color.blue)
+                    .frame(width: 7, height: 7)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(activeActivityText(item))
+                        .font(.headline)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
+                    if !item.category.isEmpty {
+                        Text(item.category)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
-            Spacer(minLength: 0)
         }
+        .buttonStyle(.plain)
     }
 
     private func compactStatusCard(title: String, systemImage: String, value: String, detail: String?) -> some View {

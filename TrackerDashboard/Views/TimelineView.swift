@@ -178,6 +178,36 @@ private struct TimelineBlockView: View {
     }
 
     private var fullBlock: some View {
+#if os(macOS)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Circle()
+                .fill(entry.color)
+                .frame(width: 7, height: 7)
+            Text(entry.timeRange)
+                .font(.caption2.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Text(entry.title)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+            if !entry.subtitle.isEmpty {
+                Text(entry.subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(entry.color.opacity(0.16), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(entry.color)
+                .frame(width: 4)
+        }
+#else
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 4) {
                 Circle()
@@ -206,6 +236,7 @@ private struct TimelineBlockView: View {
                 .fill(entry.color)
                 .frame(width: 4)
         }
+#endif
     }
 }
 

@@ -56,12 +56,6 @@ struct TaskRowView: View {
                 PriorityChip(value: rank, colorValue: task.adjustedPriority)
             }
 
-            if !compact, let comment = task.comment, !comment.isEmpty {
-                Text(comment)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
             HStack(spacing: 8) {
                 if let estimate = task.estimateMinutes {
                     Label("\(estimate)m", systemImage: "timer")

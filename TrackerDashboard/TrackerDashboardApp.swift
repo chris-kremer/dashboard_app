@@ -5,6 +5,8 @@ struct TrackerDashboardApp: App {
     @State private var syncController = SyncController.shared
 
     init() {
+        SleepReminderScheduler.requestAuthorization()
+        SleepReminderScheduler.update(for: SyncController.shared.snapshot)
 #if os(iOS)
         SyncController.shared.registerBackgroundRefresh()
         SyncController.shared.scheduleBackgroundRefresh()

@@ -37,6 +37,7 @@ final class SyncController {
             syncState.lastError = nil
             try cache.saveSyncState(syncState)
             reloadWidgets()
+            SleepReminderScheduler.update(for: snapshot)
         } catch {
             syncState.lastError = error.localizedDescription
             try? cache.saveSyncState(syncState)
@@ -165,6 +166,7 @@ final class SyncController {
         await perform(kind: .upsertSleep, request: request) {
             _ = try await apiClient.upsertSleep(request)
             await refresh(date: request.date)
+            SleepReminderScheduler.update(for: snapshot)
         }
     }
 

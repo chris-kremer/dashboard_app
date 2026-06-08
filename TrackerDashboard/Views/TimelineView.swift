@@ -6,10 +6,11 @@ struct TimelineView: View {
 
     private var entries: [TimelineEntry] {
         var result = sync.snapshot.schedule.compactMap(TimelineEntry.schedule)
-        if let sleep = sync.snapshot.sleep, let entry = TimelineEntry.sleep(sleep) {
-            result.append(entry)
+        if let sleep = sync.snapshot.sleep {
+            result.append(contentsOf: TimelineEntry.sleep(sleep))
         }
         result.append(contentsOf: (sync.snapshot.freeTime ?? []).compactMap(TimelineEntry.freeTime))
+        result.append(contentsOf: sync.snapshot.caffeine.compactMap(TimelineEntry.caffeine))
         return result.sorted { $0.startMinute < $1.startMinute }
     }
 
@@ -48,27 +49,34 @@ private struct TimelineScaleView: View {
     let now: Date
     let onSelectTask: (ScheduleItem) -> Void
 
-    private let hourHeight: CGFloat = 58
-    private let labelWidth: CGFloat = 52
-    private var totalHeight: CGFloat { hourHeight * 24 }
+    private let rowHeight: CGFloat = 54
+    private let axisWidth: CGFloat = 34
+    private let chartWidth: CGFloat = 1180
+    private var chartHeight: CGFloat { rowHeight * 8 }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            timeLabels
-            GeometryReader { proxy in
-                let safeWidth = max(proxy.size.width, 1)
-                ZStack(alignment: .topLeading) {
-                    grid
-                    ForEach(layoutEntries(width: safeWidth)) { item in
-                        timelineBlock(item.entry)
-                            .frame(width: item.width, height: item.height)
-                            .offset(x: item.x, y: yOffset(for: item.entry.startMinute))
+        VStack(alignment: .leading, spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 10) {
+                        priorityLabels
+                        ZStack(alignment: .topLeading) {
+                            grid
+                            ForEach(layoutEntries(width: chartWidth)) { item in
+                                timelineBlock(item.entry)
+                                    .frame(width: item.width, height: item.height)
+                                    .offset(x: item.x, y: yOffset(for: item.entry.priorityLevel))
+                            }
+                            nowMarker(height: chartHeight)
+                                .offset(x: xOffset(for: minuteOfDay(now), width: chartWidth))
+                        }
+                        .frame(width: chartWidth, height: chartHeight)
                     }
-                    nowMarker(width: safeWidth)
-                        .offset(y: yOffset(for: minuteOfDay(now)))
+                    xAxis
+                        .padding(.leading, axisWidth + 10)
                 }
+                .padding(.bottom, 6)
             }
-            .frame(height: totalHeight)
         }
         .padding(14)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -89,51 +97,73 @@ private struct TimelineScaleView: View {
         }
     }
 
-    private var timeLabels: some View {
+    private var priorityLabels: some View {
         VStack(spacing: 0) {
-            ForEach(0..<24, id: \.self) { hour in
-                Text(String(format: "%02d", hour))
+            ForEach([6, 5, 4, 3, 2, 1, 0, -1], id: \.self) { priority in
+                Text(priority == 6 ? "" : "\(priority)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .frame(width: labelWidth, height: hourHeight, alignment: .topTrailing)
+                    .frame(width: axisWidth, height: rowHeight, alignment: .center)
             }
         }
     }
 
     private var grid: some View {
-        VStack(spacing: 0) {
-            ForEach(0..<24, id: \.self) { _ in
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.12))
-                    .frame(height: 1)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .frame(height: hourHeight)
+        ZStack(alignment: .topLeading) {
+            VStack(spacing: 0) {
+                ForEach(0..<8, id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.12))
+                        .frame(height: 1)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                        .frame(height: rowHeight)
+                }
+            }
+            HStack(spacing: 0) {
+                ForEach(0...24, id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.08))
+                        .frame(width: 1, height: chartHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
     }
 
+    private var xAxis: some View {
+        HStack(spacing: 0) {
+            ForEach([0, 4, 8, 12, 16, 20, 24], id: \.self) { hour in
+                Text("\(hour)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: hour == 0 ? .leading : hour == 24 ? .trailing : .center)
+            }
+        }
+        .frame(width: chartWidth)
+    }
+
     private func layoutEntries(width: CGFloat) -> [TimelineLayoutEntry] {
-        entries.enumerated().map { index, entry in
-            let overlaps = entries.filter { $0.overlaps(entry) }.count
-            let column = entries[..<index].filter { $0.overlaps(entry) }.count
-            let gap: CGFloat = overlaps > 1 ? 6 : 0
-            let availableWidth = max(width - gap * CGFloat(max(overlaps - 1, 0)), 1)
-            let blockWidth = max(availableWidth / CGFloat(max(overlaps, 1)), 1)
+        entries.map { entry in
             return TimelineLayoutEntry(
                 entry: entry,
-                x: CGFloat(column) * (blockWidth + gap),
-                width: blockWidth,
-                height: max(10, CGFloat(entry.durationMinutes) / 60 * hourHeight)
+                x: xOffset(for: entry.startMinute, width: width),
+                width: max(8, CGFloat(entry.durationMinutes) / CGFloat(24 * 60) * width),
+                height: rowHeight * 0.68
             )
         }
     }
 
-    private func yOffset(for minute: Int) -> CGFloat {
-        CGFloat(minute) / 60 * hourHeight
+    private func yOffset(for priority: Int) -> CGFloat {
+        let clamped = min(max(priority, -1), 6)
+        return CGFloat(6 - clamped) * rowHeight + rowHeight * 0.16
     }
 
-    private func nowMarker(width: CGFloat) -> some View {
-        HStack(spacing: 6) {
+    private func xOffset(for minute: Int, width: CGFloat) -> CGFloat {
+        CGFloat(min(max(minute, 0), 24 * 60)) / CGFloat(24 * 60) * width
+    }
+
+    private func nowMarker(height: CGFloat) -> some View {
+        VStack(spacing: 3) {
             Text("now")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.red)
@@ -142,9 +172,9 @@ private struct TimelineScaleView: View {
                 .background(.background, in: Capsule())
             Rectangle()
                 .fill(.red)
-                .frame(width: max(width, 1), height: 2)
+                .frame(width: 2, height: height)
         }
-        .offset(x: -32, y: -6)
+        .offset(x: -1, y: -18)
     }
 
     private func minuteOfDay(_ date: Date) -> Int {
@@ -165,6 +195,10 @@ private struct TimelineBlockView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.22), lineWidth: 1)
+        }
     }
 
     private var compactBlock: some View {
@@ -255,6 +289,7 @@ private struct TimelineEntry: Identifiable {
     let subtitle: String
     let startMinute: Int
     let endMinute: Int
+    let priorityLevel: Int
     let kind: Kind
     let task: ScheduleItem?
 
@@ -276,20 +311,34 @@ private struct TimelineEntry: Identifiable {
             subtitle: item.category,
             startMinute: start,
             endMinute: min(max(end, start + 1), 24 * 60),
-            kind: .schedule(task: item.task, category: item.category),
+            priorityLevel: item.priority ?? 0,
+            kind: .schedule(priority: item.priority ?? 0),
             task: item
         )
     }
 
-    static func sleep(_ item: SleepEntry) -> TimelineEntry? {
+    static func sleep(_ item: SleepEntry) -> [TimelineEntry] {
         let start = minutes(item.sleepStart) ?? 0
-        guard let end = minutes(item.actualWake ?? item.plannedWake ?? item.alarmTime) else { return nil }
-        return TimelineEntry(
-            id: "sleep:\(item.date)",
+        guard let end = minutes(item.actualWake ?? item.plannedWake ?? item.alarmTime) else { return [] }
+        if end < start {
+            return [
+                sleepEntry(item, start: start, end: 24 * 60, suffix: "late"),
+                sleepEntry(item, start: 0, end: max(end, 30), suffix: "early")
+            ]
+        }
+        return [
+            sleepEntry(item, start: start, end: max(end, start + 30), suffix: "main")
+        ]
+    }
+
+    private static func sleepEntry(_ item: SleepEntry, start: Int, end: Int, suffix: String) -> TimelineEntry {
+        TimelineEntry(
+            id: "sleep:\(item.date):\(suffix)",
             title: "Sleep",
             subtitle: item.sleepHours.map { String(format: "%.1fh", $0) } ?? "",
             startMinute: start,
-            endMinute: max(end, start + 30),
+            endMinute: min(max(end, start + 1), 24 * 60),
+            priorityLevel: 0,
             kind: .sleep,
             task: nil
         )
@@ -306,7 +355,22 @@ private struct TimelineEntry: Identifiable {
             subtitle: "Free time",
             startMinute: start,
             endMinute: min(max(end ?? fallbackEnd, start + 1), 24 * 60),
+            priorityLevel: -1,
             kind: .freeTime,
+            task: nil
+        )
+    }
+
+    static func caffeine(_ item: CaffeineEntry) -> TimelineEntry? {
+        guard let start = minutes(item.time) else { return nil }
+        return TimelineEntry(
+            id: item.id,
+            title: item.label,
+            subtitle: "Coffee",
+            startMinute: start,
+            endMinute: min(start + 120, 24 * 60),
+            priorityLevel: 6,
+            kind: .caffeine,
             task: nil
         )
     }
@@ -325,32 +389,32 @@ private struct TimelineEntry: Identifiable {
     enum Kind {
         case sleep
         case freeTime
-        case schedule(task: String, category: String)
+        case caffeine
+        case schedule(priority: Int)
 
         var color: Color {
             switch self {
             case .sleep:
-                return .indigo
+                return .blue
             case .freeTime:
-                return .green
-            case let .schedule(task, category):
-                let text = "\(task) \(category)".lowercased()
-                if text.contains("lecture") || text.contains("tutorial") || text.contains("seminar") {
-                    return .blue
-                }
-                if text.contains("app") || text.contains("project") || text.contains("tech") {
-                    return .purple
-                }
-                if text.contains("reading") || text.contains("book") {
-                    return .teal
-                }
-                if text.contains("sports") {
-                    return .orange
-                }
-                if text.contains("admin") || text.contains("email") {
-                    return .red
-                }
+                return .red
+            case .caffeine:
                 return .gray
+            case let .schedule(priority):
+                switch priority {
+                case 5...:
+                    return .trackerDarkGreen
+                case 4:
+                    return .green
+                case 3:
+                    return Color(red: 0.55, green: 0.82, blue: 0.35)
+                case 2:
+                    return .yellow
+                case 1:
+                    return .orange
+                default:
+                    return .white
+                }
             }
         }
     }

@@ -60,11 +60,18 @@ struct InsightsView: View {
     }
 
     private var loggedMinutes: Int {
-        mergedLoggedIntervals.reduce(0) { $0 + max(0, $1.end - $1.start) }
+        mergedLoggedIntervals.reduce(0) { $0 + max(0, min($1.end, loggedCoverageDenominatorMinutes) - $1.start) }
+    }
+
+    private var loggedCoverageDenominatorMinutes: Int {
+        if sync.snapshot.date == Date.trackerDateFormatter.string(from: Date()) {
+            return max(minutes(Date.trackerTimeFormatter.string(from: Date())) ?? 1, 1)
+        }
+        return 24 * 60
     }
 
     private var loggedCoverageShare: Double {
-        min(Double(loggedMinutes) / Double(24 * 60), 1)
+        min(Double(loggedMinutes) / Double(loggedCoverageDenominatorMinutes), 1)
     }
 
     private var loggedCoveragePercent: Int {
@@ -116,28 +123,35 @@ struct InsightsView: View {
                         .buttonStyle(.plain)
                     }
 
-                    HStack(spacing: 12) {
-                        WorkloadGauge(
-                            fraction: loggedCoverageShare,
-                            color: loggedCoverageColor,
-                            centerValue: "\(loggedCoveragePercent)%",
-                            centerCaption: "\(minutesLabel(loggedMinutes)) logged"
-                        )
-                        .frame(maxWidth: 190)
-                        .frame(height: 142)
-
-                        VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline) {
                             Label("Logged Coverage", systemImage: "record.circle.fill")
                                 .font(.headline)
                                 .foregroundStyle(.secondary)
-                            Text("Minutes with an activity on the books, including sleep.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Text("\(minutesLabel((24 * 60) - loggedMinutes)) unlogged")
-                                .font(.caption.weight(.semibold))
+                            Spacer()
+                            Text("\(loggedCoveragePercent)%")
+                                .font(.title3.monospacedDigit().weight(.bold))
                                 .foregroundStyle(loggedCoverageColor)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        GeometryReader { proxy in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(Color.secondary.opacity(0.14))
+                                Capsule()
+                                    .fill(loggedCoverageColor)
+                                    .frame(width: proxy.size.width * loggedCoverageShare)
+                            }
+                        }
+                        .frame(height: 12)
+
+                        HStack {
+                            Text("\(minutesLabel(loggedMinutes)) logged")
+                            Spacer()
+                            Text("\(minutesLabel(max(loggedCoverageDenominatorMinutes - loggedMinutes, 0))) unlogged so far")
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
                     }
                     .padding(16)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))

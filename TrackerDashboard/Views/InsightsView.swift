@@ -59,6 +59,18 @@ struct InsightsView: View {
         return min(Double(actualMinutes) / Double(adjustedWorkloadMinutes), 1)
     }
 
+    private var loggedMinutes: Int {
+        mergedLoggedIntervals.reduce(0) { $0 + max(0, $1.end - $1.start) }
+    }
+
+    private var loggedCoverageShare: Double {
+        min(Double(loggedMinutes) / Double(24 * 60), 1)
+    }
+
+    private var loggedCoveragePercent: Int {
+        Int((loggedCoverageShare * 100).rounded())
+    }
+
     private var workloadItems: [ScheduleItem] {
         sync.snapshot.schedule
             .filter { ($0.adjustedPriority ?? 0) > 2 }
@@ -103,6 +115,32 @@ struct InsightsView: View {
                         }
                         .buttonStyle(.plain)
                     }
+
+                    HStack(spacing: 12) {
+                        WorkloadGauge(
+                            fraction: loggedCoverageShare,
+                            color: loggedCoverageColor,
+                            centerValue: "\(loggedCoveragePercent)%",
+                            centerCaption: "\(minutesLabel(loggedMinutes)) logged"
+                        )
+                        .frame(maxWidth: 190)
+                        .frame(height: 142)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Logged Coverage", systemImage: "record.circle.fill")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                            Text("Minutes with an activity on the books, including sleep.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Text("\(minutesLabel((24 * 60) - loggedMinutes)) unlogged")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(loggedCoverageColor)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                     sectionTitle("Logged Today")
                     HStack(spacing: 10) {
@@ -276,6 +314,13 @@ struct InsightsView: View {
         return .red
     }
 
+    private var loggedCoverageColor: Color {
+        if loggedCoverageShare >= 0.75 { return .green }
+        if loggedCoverageShare >= 0.5 { return .blue }
+        if loggedCoverageShare >= 0.25 { return .orange }
+        return .red
+    }
+
     private var urgentCompletionTint: Color {
         guard urgentKnownCount > 0 else { return .secondary }
         if urgentCompletionShare >= 0.8 { return .green }
@@ -308,6 +353,70 @@ struct InsightsView: View {
     private func completedWorkMinutes(for item: ScheduleItem) -> Int {
         item.actualMinutes ?? item.estimateMinutes ?? 0
     }
+
+    private var mergedLoggedIntervals: [LoggedInterval] {
+        let intervals = loggedIntervals.sorted { ($0.start, $0.end) < ($1.start, $1.end) }
+        return intervals.reduce(into: [LoggedInterval]()) { merged, interval in
+            guard interval.end > interval.start else { return }
+            if let last = merged.last, interval.start <= last.end {
+                merged[merged.count - 1] = LoggedInterval(start: last.start, end: max(last.end, interval.end))
+            } else {
+                merged.append(interval)
+            }
+        }
+    }
+
+    private var loggedIntervals: [LoggedInterval] {
+        var intervals = sync.snapshot.schedule.compactMap(scheduleLoggedInterval)
+        intervals.append(contentsOf: sync.snapshot.freeTime?.compactMap(freeTimeLoggedInterval) ?? [])
+        if let sleep = sync.snapshot.sleep {
+            intervals.append(contentsOf: sleepLoggedIntervals(sleep))
+        }
+        return intervals
+    }
+
+    private func scheduleLoggedInterval(_ item: ScheduleItem) -> LoggedInterval? {
+        guard let start = minutes(item.start) else { return nil }
+        let end = minutes(item.stop) ?? runningEndMinute(for: item)
+        guard let end else { return nil }
+        return LoggedInterval(start: start, end: max(start + 1, end))
+    }
+
+    private func freeTimeLoggedInterval(_ item: FreeTimeEntry) -> LoggedInterval? {
+        guard let start = minutes(item.start ?? item.time) else { return nil }
+        let fallbackEnd = start + max(item.durationMinutes ?? 30, 15)
+        let end = minutes(item.end) ?? fallbackEnd
+        return LoggedInterval(start: start, end: max(start + 1, end))
+    }
+
+    private func sleepLoggedIntervals(_ item: SleepEntry) -> [LoggedInterval] {
+        let start = minutes(item.sleepStart) ?? 0
+        guard let end = minutes(item.actualWake ?? item.plannedWake ?? item.alarmTime) else { return [] }
+        if end >= start {
+            return [LoggedInterval(start: start, end: max(start + 1, end))]
+        }
+        return [
+            LoggedInterval(start: start, end: 24 * 60),
+            LoggedInterval(start: 0, end: max(1, end))
+        ]
+    }
+
+    private func runningEndMinute(for item: ScheduleItem) -> Int? {
+        guard item.date == Date.trackerDateFormatter.string(from: Date()) else { return nil }
+        return minutes(Date.trackerTimeFormatter.string(from: Date()))
+    }
+
+    private func minutes(_ value: String?) -> Int? {
+        guard let value else { return nil }
+        let parts = value.split(separator: ":").compactMap { Int(String($0)) }
+        guard parts.count >= 2 else { return nil }
+        return min(max(parts[0] * 60 + parts[1], 0), 24 * 60)
+    }
+}
+
+private struct LoggedInterval {
+    let start: Int
+    let end: Int
 }
 
 private struct WorkloadGauge: View {

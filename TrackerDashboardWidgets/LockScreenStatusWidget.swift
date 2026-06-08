@@ -40,10 +40,7 @@ struct LockScreenStatusWidgetView: View {
     }
 
     private var topTask: ScheduleItem? {
-        entry.snapshot.openTasks
-            .filter { $0.date == entry.snapshot.date }
-            .sorted { ($0.adjustedPriority ?? -1) > ($1.adjustedPriority ?? -1) }
-            .first
+        entry.snapshot.todayOpenTasks.first
     }
 
     var body: some View {

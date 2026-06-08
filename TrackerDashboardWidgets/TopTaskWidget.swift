@@ -20,7 +20,7 @@ struct TopTaskWidgetView: View {
     let entry: TrackerWidgetEntry
 
     private var task: ScheduleItem? {
-        entry.snapshot.openTasks.sorted { ($0.adjustedPriority ?? -1) > ($1.adjustedPriority ?? -1) }.first
+        entry.snapshot.todayOpenTasks.first
     }
 
     var body: some View {

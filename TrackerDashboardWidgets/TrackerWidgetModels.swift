@@ -17,12 +17,23 @@ struct TrackerWidgetProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TrackerWidgetEntry>) -> Void) {
         let entry = entry()
-        let hasRunningTask = entry.snapshot.openTasks.contains { $0.start != nil && $0.stop == nil }
+        let hasRunningTask = entry.snapshot.todayOpenTasks.contains { $0.start != nil && $0.stop == nil }
         let interval = hasRunningTask ? 60 : 1800
         completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(TimeInterval(interval)))))
     }
 
     private func entry() -> TrackerWidgetEntry {
         TrackerWidgetEntry(date: Date(), snapshot: SharedCache.shared.loadSnapshot() ?? .empty)
+    }
+}
+
+extension TrackerSnapshot {
+    var todayOpenTasks: [ScheduleItem] {
+        openTasks
+            .filter { $0.date == date }
+            .sorted {
+                ($0.adjustedPriority ?? -1, $0.priority ?? -1, $0.task) >
+                ($1.adjustedPriority ?? -1, $1.priority ?? -1, $1.task)
+            }
     }
 }

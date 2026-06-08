@@ -22,7 +22,7 @@ struct TaskListWidgetView: View {
     private var limit: Int { family == .systemLarge ? 6 : 3 }
 
     private var tasks: [ScheduleItem] {
-        Array(entry.snapshot.openTasks.sorted { ($0.adjustedPriority ?? -1) > ($1.adjustedPriority ?? -1) }.prefix(limit))
+        Array(entry.snapshot.todayOpenTasks.prefix(limit))
     }
 
     private var nextBlock: ScheduleItem? {
@@ -38,7 +38,7 @@ struct TaskListWidgetView: View {
                 Text("Open Tasks")
                     .font(.headline)
                 Spacer()
-                Text("\(entry.snapshot.openTasks.count)")
+                Text("\(entry.snapshot.todayOpenTasks.count)")
                     .font(.headline.monospacedDigit())
                     .foregroundStyle(.secondary)
             }

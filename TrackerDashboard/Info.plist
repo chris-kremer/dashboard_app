@@ -28,6 +28,8 @@
 	<string>$(AppIdentifierPrefix)com.chriskremer.TrackerDashboard</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Tracker Dashboard reads sleep analysis from HealthKit to show sleep totals without overwriting manual sleep entries.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

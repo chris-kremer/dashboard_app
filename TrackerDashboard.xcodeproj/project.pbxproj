@@ -43,6 +43,8 @@
 		A20000000000000000000021 /* StopTaskIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* StopTaskIntent.swift */; };
 		A20000000000000000000022 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* Resources/Assets.xcassets */; };
 		C20000000000000000000001 /* SleepReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000001 /* SleepReminderScheduler.swift */; };
+		D20000000000000000000001 /* HealthSleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HealthSleepEntry.swift */; };
+		D20000000000000000000002 /* HealthKitSleepStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* HealthKitSleepStore.swift */; };
 		A20000000000000000000023 /* TrackerDashboardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* TrackerDashboardWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A30000000000000000000001 /* TrackerAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* TrackerAPIClient.swift */; };
 		A30000000000000000000002 /* TaskStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TaskStatus.swift */; };
@@ -51,6 +53,7 @@
 		A30000000000000000000005 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
 		A30000000000000000000006 /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
 		A30000000000000000000018 /* FreeTimeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* FreeTimeEntry.swift */; };
+		D30000000000000000000001 /* HealthSleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HealthSleepEntry.swift */; };
 		A30000000000000000000007 /* TrackerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* TrackerSnapshot.swift */; };
 		A30000000000000000000008 /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* SyncState.swift */; };
 		A30000000000000000000009 /* TrackerRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* TrackerRequests.swift */; };
@@ -81,6 +84,7 @@
 		B20000000000000000000009 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
 		B2000000000000000000000A /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
 		B2000000000000000000000B /* FreeTimeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* FreeTimeEntry.swift */; };
+		D40000000000000000000001 /* HealthSleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HealthSleepEntry.swift */; };
 		B2000000000000000000000C /* TrackerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* TrackerSnapshot.swift */; };
 		B2000000000000000000000D /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* SyncState.swift */; };
 		B2000000000000000000000E /* TrackerRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* TrackerRequests.swift */; };
@@ -200,6 +204,8 @@
 		B10000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000004 /* TrackerDashboardMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerDashboardMac.entitlements; sourceTree = "<group>"; };
 		B10000000000000000000005 /* TrackerDashboardMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrackerDashboardMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D10000000000000000000001 /* HealthSleepEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSleepEntry.swift; sourceTree = "<group>"; };
+		D10000000000000000000002 /* HealthKitSleepStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -255,6 +261,7 @@
 				B00000000000000000000004 /* Mac */,
 				A00000000000000000000011 /* Models */,
 				A00000000000000000000012 /* Networking */,
+				D00000000000000000000001 /* Health */,
 				C00000000000000000000001 /* Notifications */,
 				A00000000000000000000013 /* Storage */,
 				A00000000000000000000014 /* ViewModels */,
@@ -274,6 +281,7 @@
 				A10000000000000000000007 /* CaffeineEntry.swift */,
 				A10000000000000000000008 /* FoodEntry.swift */,
 				A10000000000000000000009 /* SleepEntry.swift */,
+				D10000000000000000000001 /* HealthSleepEntry.swift */,
 				A1000000000000000000002F /* FreeTimeEntry.swift */,
 				A1000000000000000000000A /* TrackerSnapshot.swift */,
 				A1000000000000000000000B /* SyncState.swift */,
@@ -374,6 +382,14 @@
 				C10000000000000000000001 /* SleepReminderScheduler.swift */,
 			);
 			path = Notifications;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000001 /* Health */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000002 /* HealthKitSleepStore.swift */,
+			);
+			path = Health;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -518,6 +534,7 @@
 				A20000000000000000000007 /* CaffeineEntry.swift in Sources */,
 				A20000000000000000000008 /* FoodEntry.swift in Sources */,
 				A20000000000000000000009 /* SleepEntry.swift in Sources */,
+				D20000000000000000000001 /* HealthSleepEntry.swift in Sources */,
 				A2000000000000000000002C /* FreeTimeEntry.swift in Sources */,
 				A2000000000000000000000A /* TrackerSnapshot.swift in Sources */,
 				A2000000000000000000000B /* SyncState.swift in Sources */,
@@ -527,6 +544,7 @@
 				A2000000000000000000000F /* KeychainStore.swift in Sources */,
 				A20000000000000000000010 /* AppSettings.swift in Sources */,
 				C20000000000000000000001 /* SleepReminderScheduler.swift in Sources */,
+				D20000000000000000000002 /* HealthKitSleepStore.swift in Sources */,
 				A20000000000000000000011 /* RootView.swift in Sources */,
 				A20000000000000000000012 /* SharedViews.swift in Sources */,
 				A20000000000000000000013 /* TodayView.swift in Sources */,
@@ -557,6 +575,7 @@
 				A30000000000000000000004 /* CaffeineEntry.swift in Sources */,
 				A30000000000000000000005 /* FoodEntry.swift in Sources */,
 				A30000000000000000000006 /* SleepEntry.swift in Sources */,
+				D30000000000000000000001 /* HealthSleepEntry.swift in Sources */,
 				A30000000000000000000018 /* FreeTimeEntry.swift in Sources */,
 				A30000000000000000000007 /* TrackerSnapshot.swift in Sources */,
 				A30000000000000000000008 /* SyncState.swift in Sources */,
@@ -592,6 +611,7 @@
 				B20000000000000000000008 /* CaffeineEntry.swift in Sources */,
 				B20000000000000000000009 /* FoodEntry.swift in Sources */,
 				B2000000000000000000000A /* SleepEntry.swift in Sources */,
+				D40000000000000000000001 /* HealthSleepEntry.swift in Sources */,
 				B2000000000000000000000B /* FreeTimeEntry.swift in Sources */,
 				B2000000000000000000000C /* TrackerSnapshot.swift in Sources */,
 				B2000000000000000000000D /* SyncState.swift in Sources */,

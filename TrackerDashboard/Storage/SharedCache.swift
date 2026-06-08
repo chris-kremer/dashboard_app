@@ -22,8 +22,16 @@ final class SharedCache {
         load(SyncState.self, from: "sync-state.json") ?? .empty
     }
 
+    func loadHealthSleep() -> HealthSleepEntry? {
+        load(HealthSleepEntry.self, from: "health-sleep.json")
+    }
+
     func saveSyncState(_ state: SyncState) throws {
         try save(state, to: "sync-state.json")
+    }
+
+    func saveHealthSleep(_ sleep: HealthSleepEntry) throws {
+        try save(sleep, to: "health-sleep.json")
     }
 
     func upsertTask(_ task: ScheduleItem) throws {

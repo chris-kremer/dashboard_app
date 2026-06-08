@@ -91,11 +91,21 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(Date.now, format: .dateTime.weekday(.wide).day().month(.wide))
                 .font(.title.bold())
-            if let sleep = sync.snapshot.sleep, let hours = sleep.sleepHours {
-                Text("Sleep \(hours, specifier: "%.1f")h\(sleep.actualWake.map { " • woke \($0)" } ?? "")")
+            if let sleepSummary {
+                Text(sleepSummary)
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var sleepSummary: String? {
+        if let sleep = sync.healthSleep {
+            return "Sleep \(String(format: "%.1f", sleep.sleepHours))h\(sleep.actualWake.map { " • woke \($0)" } ?? "") • HealthKit"
+        }
+        if let sleep = sync.snapshot.sleep, let hours = sleep.sleepHours {
+            return "Sleep \(String(format: "%.1f", hours))h\(sleep.actualWake.map { " • woke \($0)" } ?? "")"
+        }
+        return nil
     }
 
     private func refreshConfirmation(_ message: String) -> some View {
@@ -307,7 +317,9 @@ struct TodayView: View {
             HStack {
                 Label("\(sync.snapshot.caffeine.count)", systemImage: "cup.and.saucer")
                 Label("\(sync.snapshot.food.count)", systemImage: "fork.knife")
-                if let hours = sync.snapshot.sleep?.sleepHours {
+                if let hours = sync.healthSleep?.sleepHours {
+                    Label("\(hours, specifier: "%.1f")h", systemImage: "bed.double")
+                } else if let hours = sync.snapshot.sleep?.sleepHours {
                     Label("\(hours, specifier: "%.1f")h", systemImage: "bed.double")
                 }
             }

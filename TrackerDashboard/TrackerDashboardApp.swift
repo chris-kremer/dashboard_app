@@ -18,6 +18,9 @@ struct TrackerDashboardApp: App {
             RootView()
                 .environment(syncController)
                 .task {
+#if os(iOS)
+                    await syncController.refreshHealthSleep()
+#endif
                     await syncController.refresh()
                 }
         }

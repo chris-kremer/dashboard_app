@@ -171,15 +171,15 @@ struct InsightsView: View {
                         }
                         .buttonStyle(.plain)
                         NavigationLink {
-                            SleepDetailView(sleep: sync.snapshot.sleep)
+                            SleepDetailView(healthSleep: sync.healthSleep, manualSleep: sync.snapshot.sleep)
                         } label: {
                             compactMetric("Sleep", sleepValue, "bed.double.fill", .indigo, showsDisclosure: true)
                         }
                         .buttonStyle(.plain)
                     }
 
-                    if let sleep = sync.snapshot.sleep {
-                        sleepCard(sleep)
+                    if sync.healthSleep != nil || sync.snapshot.sleep != nil {
+                        sleepCard()
                     }
                 }
                 .padding(.horizontal)
@@ -275,15 +275,15 @@ struct InsightsView: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func sleepCard(_ sleep: SleepEntry) -> some View {
+    private func sleepCard() -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle("Sleep")
             HStack(spacing: 12) {
                 metricPair(title: "Duration", value: sleepValue, tint: .indigo)
                 Divider()
-                metricPair(title: "Wake", value: sleep.actualWake ?? sleep.plannedWake ?? "--:--", tint: .indigo)
+                metricPair(title: "Wake", value: sleepWakeValue, tint: .indigo)
                 Divider()
-                metricPair(title: "Overslept", value: sleep.oversleptHours.map { String(format: "%.1fh", $0) } ?? "-", tint: .orange)
+                metricPair(title: "Source", value: sync.healthSleep == nil ? "Manual" : "Health", tint: .indigo)
             }
             .frame(height: 48)
             .padding(14)
@@ -309,7 +309,17 @@ struct InsightsView: View {
     }
 
     private var sleepValue: String {
-        sync.snapshot.sleep?.sleepHours.map { String(format: "%.1fh", $0) } ?? "-"
+        if let healthSleep = sync.healthSleep {
+            return String(format: "%.1fh", healthSleep.sleepHours)
+        }
+        return sync.snapshot.sleep?.sleepHours.map { String(format: "%.1fh", $0) } ?? "-"
+    }
+
+    private var sleepWakeValue: String {
+        if let healthSleep = sync.healthSleep {
+            return healthSleep.actualWake ?? "--:--"
+        }
+        return sync.snapshot.sleep?.actualWake ?? sync.snapshot.sleep?.plannedWake ?? "--:--"
     }
 
     private var workloadHeadline: String {
@@ -383,7 +393,9 @@ struct InsightsView: View {
     private var loggedIntervals: [LoggedInterval] {
         var intervals = sync.snapshot.schedule.compactMap(scheduleLoggedInterval)
         intervals.append(contentsOf: sync.snapshot.freeTime?.compactMap(freeTimeLoggedInterval) ?? [])
-        if let sleep = sync.snapshot.sleep {
+        if let healthSleep = sync.healthSleep {
+            intervals.append(contentsOf: healthSleepLoggedIntervals(healthSleep))
+        } else if let sleep = sync.snapshot.sleep {
             intervals.append(contentsOf: sleepLoggedIntervals(sleep))
         }
         return intervals
@@ -413,6 +425,20 @@ struct InsightsView: View {
             LoggedInterval(start: start, end: 24 * 60),
             LoggedInterval(start: 0, end: max(1, end))
         ]
+    }
+
+    private func healthSleepLoggedIntervals(_ item: HealthSleepEntry) -> [LoggedInterval] {
+        item.intervals.flatMap { interval -> [LoggedInterval] in
+            let start = minutes(interval.startTime) ?? 0
+            let end = minutes(interval.endTime) ?? 0
+            if end >= start {
+                return [LoggedInterval(start: start, end: end)]
+            }
+            return [
+                LoggedInterval(start: start, end: 24 * 60),
+                LoggedInterval(start: 0, end: end)
+            ]
+        }
     }
 
     private func runningEndMinute(for item: ScheduleItem) -> Int? {
@@ -656,12 +682,30 @@ private struct FoodDetailView: View {
 }
 
 private struct SleepDetailView: View {
-    let sleep: SleepEntry?
+    let healthSleep: HealthSleepEntry?
+    let manualSleep: SleepEntry?
 
     var body: some View {
         List {
-            if let sleep {
-                Section("Sleep") {
+            if let healthSleep {
+                Section("HealthKit") {
+                    sleepRow("Duration", String(format: "%.1fh", healthSleep.sleepHours), "bed.double.fill")
+                    sleepRow("Sleep start", healthSleep.sleepStart ?? "-", "moon.fill")
+                    sleepRow("Wake", healthSleep.actualWake ?? "-", "sun.max.fill")
+                    sleepRow("Intervals", "\(healthSleep.intervals.count)", "waveform.path.ecg")
+                    sleepRow("Synced", healthSleep.syncedAt.formatted(date: .abbreviated, time: .shortened), "heart.text.square.fill")
+                }
+                if !healthSleep.intervals.isEmpty {
+                    Section("HealthKit Intervals") {
+                        ForEach(healthSleep.intervals) { interval in
+                            sleepRow("\(interval.startTime)-\(interval.endTime)", "\(interval.durationMinutes)m", "clock.fill")
+                        }
+                    }
+                }
+            }
+
+            if let sleep = manualSleep {
+                Section("Manual Sheet") {
                     sleepRow("Duration", sleep.sleepHours.map { String(format: "%.1fh", $0) } ?? "-", "bed.double.fill")
                     sleepRow("Sleep start", sleep.sleepStart ?? "-", "moon.fill")
                     sleepRow("Alarm", sleep.alarmTime ?? "-", "alarm.fill")
@@ -669,7 +713,9 @@ private struct SleepDetailView: View {
                     sleepRow("Actual wake", sleep.actualWake ?? "-", "sun.max.fill")
                     sleepRow("Overslept", sleep.oversleptHours.map { String(format: "%.1fh", $0) } ?? "-", "exclamationmark.triangle.fill")
                 }
-            } else {
+            }
+
+            if healthSleep == nil && manualSleep == nil {
                 ContentUnavailableView("No sleep logged", systemImage: "bed.double")
             }
         }

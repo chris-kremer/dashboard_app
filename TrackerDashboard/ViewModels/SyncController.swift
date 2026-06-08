@@ -13,6 +13,7 @@ final class SyncController {
     static let shared = SyncController()
 
     var snapshot: TrackerSnapshot
+    var healthSleep: HealthSleepEntry?
     var syncState: SyncState
     var isRefreshing = false
 
@@ -23,6 +24,7 @@ final class SyncController {
         self.cache = cache
         self.apiClient = apiClient
         self.snapshot = cache.loadSnapshot() ?? .empty
+        self.healthSleep = cache.loadHealthSleep()
         self.syncState = cache.loadSyncState()
     }
 
@@ -33,6 +35,7 @@ final class SyncController {
             let snapshot = try await apiClient.fetchSnapshot(date: date)
             self.snapshot = snapshot
             try cache.saveSnapshot(snapshot)
+            await refreshHealthSleep()
             syncState.lastSuccessfulSync = Date()
             syncState.lastError = nil
             try cache.saveSyncState(syncState)
@@ -41,7 +44,23 @@ final class SyncController {
         } catch {
             syncState.lastError = error.localizedDescription
             try? cache.saveSyncState(syncState)
+            await refreshHealthSleep()
         }
+    }
+
+    func refreshHealthSleep() async {
+#if os(iOS)
+        do {
+            try await HealthKitSleepStore.shared.requestAuthorization()
+            if let sleep = try await HealthKitSleepStore.shared.sleep() {
+                healthSleep = sleep
+                try cache.saveHealthSleep(sleep)
+            }
+        } catch {
+            syncState.lastError = error.localizedDescription
+            try? cache.saveSyncState(syncState)
+        }
+#endif
     }
 
     func createTask(_ request: CreateTaskRequest) async {

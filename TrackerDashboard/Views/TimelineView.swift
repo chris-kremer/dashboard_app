@@ -6,7 +6,9 @@ struct TimelineView: View {
 
     private var entries: [TimelineEntry] {
         var result = sync.snapshot.schedule.compactMap(TimelineEntry.schedule)
-        if let sleep = sync.snapshot.sleep {
+        if let sleep = sync.healthSleep {
+            result.append(contentsOf: TimelineEntry.healthSleep(sleep))
+        } else if let sleep = sync.snapshot.sleep {
             result.append(contentsOf: TimelineEntry.sleep(sleep))
         }
         result.append(contentsOf: (sync.snapshot.freeTime ?? []).compactMap(TimelineEntry.freeTime))
@@ -354,6 +356,33 @@ private struct TimelineEntry: Identifiable {
             id: "sleep:\(item.date):\(suffix)",
             title: "Sleep",
             subtitle: item.sleepHours.map { String(format: "%.1fh", $0) } ?? "",
+            startMinute: start,
+            endMinute: min(max(end, start + 1), 24 * 60),
+            priorityLevel: 0,
+            kind: .sleep,
+            task: nil
+        )
+    }
+
+    static func healthSleep(_ item: HealthSleepEntry) -> [TimelineEntry] {
+        item.intervals.flatMap { interval -> [TimelineEntry] in
+            let start = minutes(interval.startTime) ?? 0
+            let end = minutes(interval.endTime) ?? start + max(interval.durationMinutes, 30)
+            if end < start {
+                return [
+                    healthSleepEntry(interval, start: start, end: 24 * 60, suffix: "late"),
+                    healthSleepEntry(interval, start: 0, end: max(end, 30), suffix: "early")
+                ]
+            }
+            return [healthSleepEntry(interval, start: start, end: end, suffix: "main")]
+        }
+    }
+
+    private static func healthSleepEntry(_ interval: HealthSleepInterval, start: Int, end: Int, suffix: String) -> TimelineEntry {
+        TimelineEntry(
+            id: "health-sleep:\(interval.id):\(suffix)",
+            title: "Sleep",
+            subtitle: "HealthKit",
             startMinute: start,
             endMinute: min(max(end, start + 1), 24 * 60),
             priorityLevel: 0,

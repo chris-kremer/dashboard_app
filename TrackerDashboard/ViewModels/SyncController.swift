@@ -36,6 +36,12 @@ final class SyncController {
             self.snapshot = snapshot
             try cache.saveSnapshot(snapshot)
             await refreshHealthSleep()
+            let importedWorkouts = await importHealthWorkouts(date: date)
+            if importedWorkouts {
+                let updatedSnapshot = try await apiClient.fetchSnapshot(date: date)
+                self.snapshot = updatedSnapshot
+                try cache.saveSnapshot(updatedSnapshot)
+            }
             syncState.lastSuccessfulSync = Date()
             syncState.lastError = nil
             try cache.saveSyncState(syncState)
@@ -60,6 +66,45 @@ final class SyncController {
             syncState.lastError = error.localizedDescription
             try? cache.saveSyncState(syncState)
         }
+#endif
+    }
+
+    func importHealthWorkouts(date: String = Date.trackerDateFormatter.string(from: Date())) async -> Bool {
+#if os(iOS)
+        do {
+            try await HealthKitWorkoutStore.shared.requestAuthorization()
+            let targetDate = Date.trackerDateFormatter.date(from: date) ?? Date()
+            let workouts = try await HealthKitWorkoutStore.shared.workouts(for: targetDate)
+            let existingIds = Set(snapshot.schedule.compactMap { item -> String? in
+                item.source == "healthkit-workout" ? item.sourceId : nil
+            })
+            let missing = workouts.filter { !existingIds.contains($0.id) }
+            guard !missing.isEmpty else { return false }
+
+            for workout in missing {
+                _ = try await apiClient.createTask(CreateTaskRequest(
+                    date: workout.date,
+                    task: workout.title,
+                    category: "sports",
+                    comment: "HealthKit workout",
+                    priority: 2,
+                    estimateMinutes: 30,
+                    start: workout.start,
+                    stop: workout.stop,
+                    status: .logged,
+                    source: "healthkit-workout",
+                    sourceId: workout.id,
+                    importedAt: ISO8601DateFormatter().string(from: Date())
+                ))
+            }
+            return true
+        } catch {
+            syncState.lastError = error.localizedDescription
+            try? cache.saveSyncState(syncState)
+            return false
+        }
+#else
+        return false
 #endif
     }
 

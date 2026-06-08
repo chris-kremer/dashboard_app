@@ -81,13 +81,19 @@ export async function appendTask(env: Env, body: any): Promise<ScheduleItem> {
     `=IF(AND(E${rowNumber}<>"";F${rowNumber}<>"");INT(E${rowNumber}/(F${rowNumber}/60));"")`,
     "",
     `=IF(AND(J${rowNumber}<>"";K${rowNumber}<>"");ROUND(MOD(K${rowNumber}-J${rowNumber};1)*1440;0);"")`,
+    body.start ?? "",
+    body.stop ?? "",
+    body.status ?? "",
     "",
     "",
     "",
     "",
-    ""
+    "",
+    body.source ?? "",
+    body.sourceId ?? "",
+    body.importedAt ?? ""
   ]];
-  await sheetsAppend(env, "schedule!A:N", values);
+  await sheetsAppend(env, "schedule!A:T", values);
   return await readScheduleRow(env, rowNumber);
 }
 

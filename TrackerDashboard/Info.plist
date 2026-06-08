@@ -29,7 +29,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Tracker Dashboard reads sleep analysis from HealthKit to show sleep totals without overwriting manual sleep entries.</string>
+	<string>Tracker Dashboard reads sleep and workouts from HealthKit to show sleep totals and import workouts without overwriting manual entries.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

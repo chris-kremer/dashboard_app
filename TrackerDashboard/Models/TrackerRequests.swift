@@ -7,6 +7,12 @@ struct CreateTaskRequest: Codable, Equatable {
     var comment: String?
     var priority: Int?
     var estimateMinutes: Int?
+    var start: String? = nil
+    var stop: String? = nil
+    var status: TaskStatus? = nil
+    var source: String? = nil
+    var sourceId: String? = nil
+    var importedAt: String? = nil
 }
 
 struct TaskPatchRequest: Codable, Equatable {

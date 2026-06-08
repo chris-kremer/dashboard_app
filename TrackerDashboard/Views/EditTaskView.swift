@@ -19,13 +19,13 @@ struct EditTaskView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(task.task) {
+                Section(task.category.isEmpty ? "Task" : task.category) {
                     Stepper("Priority \(priority)", value: $priority, in: 1...10)
                     Stepper("Estimate \(estimate)m", value: $estimate, in: 5...480, step: 5)
                     TextField("Comment", text: $comment, axis: .vertical)
                 }
             }
-            .navigationTitle("Edit Task")
+            .navigationTitle(task.task)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

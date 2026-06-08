@@ -3,12 +3,19 @@ import SwiftUI
 struct InsightsView: View {
     @Environment(SyncController.self) private var sync
 
-    private var plannedMinutes: Int {
-        workloadItems.compactMap(\.estimateMinutes).reduce(0, +)
+    private var adjustedWorkloadMinutes: Int {
+        workloadItems.reduce(0) { total, item in
+            if isCompletedForInsights(item) {
+                return total + completedWorkMinutes(for: item)
+            }
+            return total + (item.estimateMinutes ?? 0)
+        }
     }
 
     private var actualMinutes: Int {
-        workloadItems.compactMap(\.actualMinutes).reduce(0, +)
+        workloadItems
+            .filter(isCompletedForInsights)
+            .reduce(0) { $0 + completedWorkMinutes(for: $1) }
     }
 
     private var completedTasks: Int {
@@ -48,8 +55,8 @@ struct InsightsView: View {
     }
 
     private var actualShare: Double {
-        guard plannedMinutes > 0 else { return 0 }
-        return min(Double(actualMinutes) / Double(plannedMinutes), 1)
+        guard adjustedWorkloadMinutes > 0 else { return 0 }
+        return min(Double(actualMinutes) / Double(adjustedWorkloadMinutes), 1)
     }
 
     private var workloadItems: [ScheduleItem] {
@@ -138,7 +145,7 @@ struct InsightsView: View {
                     .font(.headline)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(actualMinutes)m / \(plannedMinutes)m")
+                Text("\(actualMinutes)m / \(adjustedWorkloadMinutes)m")
                     .font(.subheadline.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.secondary)
             }
@@ -150,12 +157,12 @@ struct InsightsView: View {
                 fraction: actualShare,
                 color: workloadColor,
                 centerValue: minutesLabel(actualMinutes),
-                centerCaption: "of \(minutesLabel(plannedMinutes))"
+                centerCaption: "of \(minutesLabel(adjustedWorkloadMinutes))"
             )
             .frame(height: 190)
 
             HStack {
-                metricPair(title: "Planned", value: minutesLabel(plannedMinutes), tint: .blue)
+                metricPair(title: "Adjusted", value: minutesLabel(adjustedWorkloadMinutes), tint: .blue)
                 Divider()
                 metricPair(title: "Actual", value: minutesLabel(actualMinutes), tint: workloadColor)
             }
@@ -254,15 +261,15 @@ struct InsightsView: View {
     }
 
     private var workloadHeadline: String {
-        if plannedMinutes == 0 { return "No priority workload yet" }
+        if adjustedWorkloadMinutes == 0 { return "No priority workload yet" }
         if actualMinutes == 0 { return "Priority work is waiting" }
-        if actualMinutes >= plannedMinutes { return "Priority workload is covered" }
-        return "\(minutesLabel(plannedMinutes - actualMinutes)) left on AP 3+ work"
+        if actualMinutes >= adjustedWorkloadMinutes { return "Priority workload is covered" }
+        return "\(minutesLabel(adjustedWorkloadMinutes - actualMinutes)) left on AP 3+ work"
     }
 
     private var workloadColor: Color {
-        guard plannedMinutes > 0 else { return .secondary }
-        let ratio = Double(actualMinutes) / Double(plannedMinutes)
+        guard adjustedWorkloadMinutes > 0 else { return .secondary }
+        let ratio = Double(actualMinutes) / Double(adjustedWorkloadMinutes)
         if ratio >= 1 { return .green }
         if ratio >= 0.6 { return .blue }
         if ratio >= 0.3 { return .orange }
@@ -296,6 +303,10 @@ struct InsightsView: View {
             || item.status == .logged
             || item.stop != nil
             || item.actualMinutes != nil
+    }
+
+    private func completedWorkMinutes(for item: ScheduleItem) -> Int {
+        item.actualMinutes ?? item.estimateMinutes ?? 0
     }
 }
 

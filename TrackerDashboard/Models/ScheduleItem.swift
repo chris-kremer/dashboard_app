@@ -47,6 +47,14 @@ struct ScheduleItem: Codable, Identifiable, Equatable {
 }
 
 extension ScheduleItem {
+    var isOpenDisplayTask: Bool {
+        !task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && status != .done
+            && status != .cancelled
+            && status != .logged
+            && (stop == nil || status == .inProgress)
+    }
+
     func dateTime(from timeString: String?) -> Date? {
         guard let timeString,
               let time = Date.trackerTimeFormatter.date(from: timeString)

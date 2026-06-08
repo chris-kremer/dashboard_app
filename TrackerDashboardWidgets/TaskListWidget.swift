@@ -38,9 +38,6 @@ struct TaskListWidgetView: View {
                 Text("Open Tasks")
                     .font(.headline)
                 Spacer()
-                Text("\(entry.snapshot.todayOpenTasks.count)")
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(.secondary)
             }
             ForEach(tasks) { task in
                 taskRow(task)

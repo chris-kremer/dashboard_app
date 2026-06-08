@@ -29,7 +29,7 @@ struct TrackerSnapshot: Codable, Equatable {
 extension TrackerSnapshot {
     var todayOpenTasks: [ScheduleItem] {
         openTasks
-            .filter { $0.date == date }
+            .filter { $0.date == date && $0.isOpenDisplayTask }
             .sorted {
                 ($0.adjustedPriority ?? -1, $0.priority ?? -1, $0.task) >
                 ($1.adjustedPriority ?? -1, $1.priority ?? -1, $1.task)

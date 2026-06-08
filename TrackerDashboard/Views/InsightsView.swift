@@ -146,16 +146,13 @@ struct InsightsView: View {
             Text(workloadHeadline)
                 .font(.title2.weight(.bold))
 
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.14))
-                    Capsule()
-                        .fill(workloadColor)
-                        .frame(width: proxy.size.width * actualShare)
-                }
-            }
-            .frame(height: 12)
+            WorkloadGauge(
+                fraction: actualShare,
+                color: workloadColor,
+                centerValue: minutesLabel(actualMinutes),
+                centerCaption: "of \(minutesLabel(plannedMinutes))"
+            )
+            .frame(height: 190)
 
             HStack {
                 metricPair(title: "Planned", value: minutesLabel(plannedMinutes), tint: .blue)
@@ -299,6 +296,57 @@ struct InsightsView: View {
             || item.status == .logged
             || item.stop != nil
             || item.actualMinutes != nil
+    }
+}
+
+private struct WorkloadGauge: View {
+    let fraction: Double
+    let color: Color
+    let centerValue: String
+    let centerCaption: String
+
+    private var clampedFraction: Double {
+        min(max(fraction, 0), 1)
+    }
+
+    var body: some View {
+        ZStack {
+            ArcGaugeShape(progress: 1)
+                .stroke(Color.secondary.opacity(0.15), style: StrokeStyle(lineWidth: 18, lineCap: .round))
+
+            ArcGaugeShape(progress: clampedFraction)
+                .stroke(color, style: StrokeStyle(lineWidth: 18, lineCap: .round))
+
+            VStack(spacing: 4) {
+                Text(centerValue)
+                    .font(.system(size: 38, weight: .bold, design: .rounded).monospacedDigit())
+                Text(centerCaption)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 14)
+        }
+        .padding(.horizontal, 28)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct ArcGaugeShape: Shape {
+    var progress: Double
+
+    func path(in rect: CGRect) -> Path {
+        let inset: CGFloat = 14
+        let size = min(rect.width, rect.height * 1.22) - inset * 2
+        let center = CGPoint(x: rect.midX, y: rect.midY + size * 0.08)
+        let radius = max(size / 2, 1)
+        let start = Angle.degrees(135)
+        let end = Angle.degrees(135 + 270 * min(max(progress, 0), 1))
+
+        var path = Path()
+        path.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
+        return path
     }
 }
 

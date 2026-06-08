@@ -48,14 +48,17 @@ private struct TimelineScaleView: View {
     let entries: [TimelineEntry]
     let now: Date
     let onSelectTask: (ScheduleItem) -> Void
+    @State private var zoom: CGFloat = 1
 
-    private let rowHeight: CGFloat = 54
+    private let rowHeight: CGFloat = 72
     private let axisWidth: CGFloat = 34
-    private let chartWidth: CGFloat = 1180
+    private let baseChartWidth: CGFloat = 1680
+    private var chartWidth: CGFloat { baseChartWidth * zoom }
     private var chartHeight: CGFloat { rowHeight * 8 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            zoomControls
             ScrollView(.horizontal, showsIndicators: true) {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top, spacing: 10) {
@@ -80,6 +83,28 @@ private struct TimelineScaleView: View {
         }
         .padding(14)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var zoomControls: some View {
+        HStack(spacing: 8) {
+            Text("0-24h")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                zoom = max(0.55, zoom - 0.15)
+            } label: {
+                Image(systemName: "minus.magnifyingglass")
+            }
+            .disabled(zoom <= 0.55)
+            Button {
+                zoom = min(1.65, zoom + 0.15)
+            } label: {
+                Image(systemName: "plus.magnifyingglass")
+            }
+            .disabled(zoom >= 1.65)
+        }
+        .buttonStyle(.bordered)
     }
 
     @ViewBuilder
@@ -148,14 +173,14 @@ private struct TimelineScaleView: View {
                 entry: entry,
                 x: xOffset(for: entry.startMinute, width: width),
                 width: max(8, CGFloat(entry.durationMinutes) / CGFloat(24 * 60) * width),
-                height: rowHeight * 0.68
+                height: rowHeight * 0.92
             )
         }
     }
 
     private func yOffset(for priority: Int) -> CGFloat {
         let clamped = min(max(priority, -1), 6)
-        return CGFloat(6 - clamped) * rowHeight + rowHeight * 0.16
+        return CGFloat(6 - clamped) * rowHeight + rowHeight * 0.04
     }
 
     private func xOffset(for minute: Int, width: CGFloat) -> CGFloat {
@@ -217,10 +242,6 @@ private struct TimelineBlockView: View {
             Circle()
                 .fill(entry.color)
                 .frame(width: 7, height: 7)
-            Text(entry.timeRange)
-                .font(.caption2.monospacedDigit().weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
             Text(entry.title)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
@@ -247,13 +268,10 @@ private struct TimelineBlockView: View {
                 Circle()
                     .fill(entry.color)
                     .frame(width: 7, height: 7)
-                Text(entry.timeRange)
-                    .font(.caption2.monospacedDigit().weight(.semibold))
+                Text(entry.title)
+                    .font(.caption.weight(.semibold))
                     .lineLimit(1)
             }
-            Text(entry.title)
-                .font(.caption.weight(.semibold))
-                .lineLimit(2)
             if !entry.subtitle.isEmpty {
                 Text(entry.subtitle)
                     .font(.caption2)

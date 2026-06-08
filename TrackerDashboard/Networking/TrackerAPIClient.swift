@@ -26,8 +26,8 @@ actor TrackerAPIClient {
         try await sendJSON(patch, method: "PATCH", path: "tasks/\(rowNumber)", responseType: ScheduleItem.self)
     }
 
-    func completeTask(rowNumber: Int, source: String) async throws -> ScheduleItem {
-        try await sendJSON(CompleteTaskRequest(source: source), method: "POST", path: "tasks/\(rowNumber)/complete", responseType: ScheduleItem.self)
+    func completeTask(rowNumber: Int, source: String, stop: String? = nil) async throws -> ScheduleItem {
+        try await sendJSON(CompleteTaskRequest(source: source, stop: stop), method: "POST", path: "tasks/\(rowNumber)/complete", responseType: ScheduleItem.self)
     }
 
     func logCaffeine(_ request: CaffeineRequest) async throws -> CaffeineEntry {

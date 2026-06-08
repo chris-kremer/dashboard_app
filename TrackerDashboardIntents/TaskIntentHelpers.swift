@@ -9,16 +9,18 @@ enum TaskIntentHelpers {
 
     static func complete(rowId: String, source: String) async throws {
         guard var task = task(rowId: rowId) else { return }
+        let stopTime = Date.trackerTimeFormatter.string(from: Date())
         task.status = .done
+        task.stop = stopTime
         try SharedCache.shared.upsertTask(task)
         WidgetCenter.shared.reloadAllTimelines()
 
         do {
-            let updated = try await TrackerAPIClient.shared.completeTask(rowNumber: task.rowNumber, source: source)
+            let updated = try await TrackerAPIClient.shared.completeTask(rowNumber: task.rowNumber, source: source, stop: stopTime)
             try SharedCache.shared.upsertTask(updated)
             WidgetCenter.shared.reloadAllTimelines()
         } catch {
-            try queue(kind: .completeTask, payload: CompleteTaskRequest(source: source), error: error)
+            try queue(kind: .completeTask, payload: CompleteTaskRequest(source: source, stop: stopTime), error: error)
             throw error
         }
     }

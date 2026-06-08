@@ -62,14 +62,16 @@ final class SyncController {
     }
 
     func completeTask(_ task: ScheduleItem, source: String = "ios") async {
+        let stopTime = Date.trackerTimeFormatter.string(from: Date())
         var optimistic = task
         optimistic.status = .done
+        optimistic.stop = stopTime
         try? cache.upsertTask(optimistic)
         snapshot = cache.loadSnapshot() ?? snapshot
         reloadWidgets()
 
-        await perform(kind: .completeTask, request: CompleteTaskRequest(source: source)) {
-            let item = try await apiClient.completeTask(rowNumber: task.rowNumber, source: source)
+        await perform(kind: .completeTask, request: CompleteTaskRequest(source: source, stop: stopTime)) {
+            let item = try await apiClient.completeTask(rowNumber: task.rowNumber, source: source, stop: stopTime)
             try cache.upsertTask(item)
             snapshot = cache.loadSnapshot() ?? snapshot
             reloadWidgets()

@@ -99,8 +99,11 @@ export async function patchTask(env: Env, rowNumber: number, body: any): Promise
   return await readScheduleRow(env, rowNumber);
 }
 
-export async function completeTask(env: Env, rowNumber: number, source: string): Promise<ScheduleItem> {
+export async function completeTask(env: Env, rowNumber: number, source: string, stop?: string): Promise<ScheduleItem> {
+  const existing = await readScheduleRow(env, rowNumber);
+  const finishTime = normalizeTime(stop) || existing.stop || new Date().toISOString().slice(11, 16);
   await sheetsBatchUpdate(env, [
+    { range: `schedule!K${rowNumber}`, values: [[finishTime]] },
     { range: `schedule!L${rowNumber}:N${rowNumber}`, values: [["done", new Date().toISOString(), source || "ios"]] }
   ]);
   return await readScheduleRow(env, rowNumber);

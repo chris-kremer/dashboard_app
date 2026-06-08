@@ -28,8 +28,8 @@ export default {
         return json(await patchTask(env, Number(taskMatch[1]), await request.json()));
       }
       if (taskMatch && request.method === "POST" && url.pathname.endsWith("/complete")) {
-        const body: { source?: string } = await request.json<{ source?: string }>().catch(() => ({}));
-        return json(await completeTask(env, Number(taskMatch[1]), body.source ?? "ios"));
+        const body: { source?: string; stop?: string } = await request.json<{ source?: string; stop?: string }>().catch(() => ({}));
+        return json(await completeTask(env, Number(taskMatch[1]), body.source ?? "ios", body.stop));
       }
 
       if (request.method === "POST" && url.pathname === "/caffeine") {

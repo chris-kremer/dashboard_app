@@ -47,6 +47,7 @@ struct TaskPatchRequest: Codable, Equatable {
 
 struct CompleteTaskRequest: Codable, Equatable {
     var source: String
+    var stop: String?
 }
 
 struct CaffeineRequest: Codable, Equatable {

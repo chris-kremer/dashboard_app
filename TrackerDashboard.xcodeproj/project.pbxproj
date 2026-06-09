@@ -46,6 +46,10 @@
 		D20000000000000000000001 /* HealthSleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HealthSleepEntry.swift */; };
 		D20000000000000000000002 /* HealthKitSleepStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* HealthKitSleepStore.swift */; };
 		D20000000000000000000003 /* HealthKitWorkoutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003 /* HealthKitWorkoutStore.swift */; };
+		E20000000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000001 /* MediaModels.swift */; };
+		E20000000000000000000002 /* MediaAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000002 /* MediaAPIClient.swift */; };
+		E20000000000000000000003 /* MediaSyncController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000003 /* MediaSyncController.swift */; };
+		E30000000000000000000001 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000001 /* MediaModels.swift */; };
 		A20000000000000000000023 /* TrackerDashboardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* TrackerDashboardWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A30000000000000000000001 /* TrackerAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* TrackerAPIClient.swift */; };
 		A30000000000000000000002 /* TaskStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TaskStatus.swift */; };
@@ -107,6 +111,9 @@
 		B2000000000000000000001E /* SleepEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* SleepEditView.swift */; };
 		B2000000000000000000001F /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* Resources/Assets.xcassets */; };
 		C20000000000000000000002 /* SleepReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000001 /* SleepReminderScheduler.swift */; };
+		E20000000000000000000004 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000001 /* MediaModels.swift */; };
+		E20000000000000000000005 /* MediaAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000002 /* MediaAPIClient.swift */; };
+		E20000000000000000000006 /* MediaSyncController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000003 /* MediaSyncController.swift */; };
 		W20000000000000000000001 /* TrackerDashboardWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000001 /* TrackerDashboardWatchApp.swift */; };
 		W20000000000000000000002 /* WatchTrackerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000002 /* WatchTrackerStore.swift */; };
 		W20000000000000000000003 /* WatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000003 /* WatchRootView.swift */; };
@@ -120,6 +127,7 @@
 		W2000000000000000000000A /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
 		W2000000000000000000000B /* FreeTimeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* FreeTimeEntry.swift */; };
 		W20000000000000000000013 /* HealthSleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HealthSleepEntry.swift */; };
+		W20000000000000000000014 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000001 /* MediaModels.swift */; };
 		W2000000000000000000000C /* TrackerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* TrackerSnapshot.swift */; };
 		W20000000000000000000015 /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* SyncState.swift */; };
 		W2000000000000000000000D /* TrackerRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* TrackerRequests.swift */; };
@@ -247,6 +255,9 @@
 		D10000000000000000000001 /* HealthSleepEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSleepEntry.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* HealthKitSleepStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepStore.swift; sourceTree = "<group>"; };
 		D10000000000000000000003 /* HealthKitWorkoutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitWorkoutStore.swift; sourceTree = "<group>"; };
+		E10000000000000000000001 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
+		E10000000000000000000002 /* MediaAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaAPIClient.swift; sourceTree = "<group>"; };
+		E10000000000000000000003 /* MediaSyncController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSyncController.swift; sourceTree = "<group>"; };
 		W10000000000000000000001 /* TrackerDashboardWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerDashboardWatchApp.swift; sourceTree = "<group>"; };
 		W10000000000000000000002 /* WatchTrackerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTrackerStore.swift; sourceTree = "<group>"; };
 		W10000000000000000000003 /* WatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRootView.swift; sourceTree = "<group>"; };
@@ -339,6 +350,7 @@
 				A10000000000000000000009 /* SleepEntry.swift */,
 				D10000000000000000000001 /* HealthSleepEntry.swift */,
 				A1000000000000000000002F /* FreeTimeEntry.swift */,
+				E10000000000000000000001 /* MediaModels.swift */,
 				A1000000000000000000000A /* TrackerSnapshot.swift */,
 				A1000000000000000000000B /* SyncState.swift */,
 				A1000000000000000000000C /* TrackerRequests.swift */,
@@ -350,6 +362,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000002 /* TrackerAPIClient.swift */,
+				E10000000000000000000002 /* MediaAPIClient.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -369,6 +382,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000003 /* SyncController.swift */,
+				E10000000000000000000003 /* MediaSyncController.swift */,
 				A10000000000000000000004 /* TodayViewModel.swift */,
 			);
 			path = ViewModels;
@@ -635,6 +649,7 @@
 				A20000000000000000000009 /* SleepEntry.swift in Sources */,
 				D20000000000000000000001 /* HealthSleepEntry.swift in Sources */,
 				A2000000000000000000002C /* FreeTimeEntry.swift in Sources */,
+				E20000000000000000000001 /* MediaModels.swift in Sources */,
 				A2000000000000000000000A /* TrackerSnapshot.swift in Sources */,
 				A2000000000000000000000B /* SyncState.swift in Sources */,
 				A2000000000000000000000C /* TrackerRequests.swift in Sources */,
@@ -642,6 +657,7 @@
 				A2000000000000000000000E /* SharedCache.swift in Sources */,
 				A2000000000000000000000F /* KeychainStore.swift in Sources */,
 				A20000000000000000000010 /* AppSettings.swift in Sources */,
+				E20000000000000000000002 /* MediaAPIClient.swift in Sources */,
 				C20000000000000000000001 /* SleepReminderScheduler.swift in Sources */,
 				D20000000000000000000002 /* HealthKitSleepStore.swift in Sources */,
 				D20000000000000000000003 /* HealthKitWorkoutStore.swift in Sources */,
@@ -658,6 +674,7 @@
 				A2000000000000000000001B /* LogCaffeineView.swift in Sources */,
 				A2000000000000000000001C /* LogFoodView.swift in Sources */,
 				A2000000000000000000001D /* SleepEditView.swift in Sources */,
+				E20000000000000000000003 /* MediaSyncController.swift in Sources */,
 				A2000000000000000000001E /* TaskIntentHelpers.swift in Sources */,
 				A2000000000000000000001F /* CompleteTaskIntent.swift in Sources */,
 				A20000000000000000000020 /* StartTaskIntent.swift in Sources */,
@@ -677,6 +694,7 @@
 				A30000000000000000000006 /* SleepEntry.swift in Sources */,
 				D30000000000000000000001 /* HealthSleepEntry.swift in Sources */,
 				A30000000000000000000018 /* FreeTimeEntry.swift in Sources */,
+				E30000000000000000000001 /* MediaModels.swift in Sources */,
 				A30000000000000000000007 /* TrackerSnapshot.swift in Sources */,
 				A30000000000000000000008 /* SyncState.swift in Sources */,
 				A30000000000000000000009 /* TrackerRequests.swift in Sources */,
@@ -713,6 +731,7 @@
 				B2000000000000000000000A /* SleepEntry.swift in Sources */,
 				D40000000000000000000001 /* HealthSleepEntry.swift in Sources */,
 				B2000000000000000000000B /* FreeTimeEntry.swift in Sources */,
+				E20000000000000000000004 /* MediaModels.swift in Sources */,
 				B2000000000000000000000C /* TrackerSnapshot.swift in Sources */,
 				B2000000000000000000000D /* SyncState.swift in Sources */,
 				B2000000000000000000000E /* TrackerRequests.swift in Sources */,
@@ -720,6 +739,7 @@
 				B20000000000000000000010 /* SharedCache.swift in Sources */,
 				B20000000000000000000011 /* KeychainStore.swift in Sources */,
 				B20000000000000000000012 /* AppSettings.swift in Sources */,
+				E20000000000000000000005 /* MediaAPIClient.swift in Sources */,
 				C20000000000000000000002 /* SleepReminderScheduler.swift in Sources */,
 				B20000000000000000000013 /* SharedViews.swift in Sources */,
 				B20000000000000000000014 /* TodayView.swift in Sources */,
@@ -733,6 +753,7 @@
 				B2000000000000000000001C /* LogCaffeineView.swift in Sources */,
 				B2000000000000000000001D /* LogFoodView.swift in Sources */,
 				B2000000000000000000001E /* SleepEditView.swift in Sources */,
+				E20000000000000000000006 /* MediaSyncController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -753,6 +774,7 @@
 				W2000000000000000000000A /* SleepEntry.swift in Sources */,
 				W2000000000000000000000B /* FreeTimeEntry.swift in Sources */,
 				W20000000000000000000013 /* HealthSleepEntry.swift in Sources */,
+				W20000000000000000000014 /* MediaModels.swift in Sources */,
 				W2000000000000000000000C /* TrackerSnapshot.swift in Sources */,
 				W20000000000000000000015 /* SyncState.swift in Sources */,
 				W2000000000000000000000D /* TrackerRequests.swift in Sources */,

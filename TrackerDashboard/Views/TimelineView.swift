@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TimelineView: View {
     @Environment(SyncController.self) private var sync
+    @Environment(MediaSyncController.self) private var mediaSync
     @State private var selectedTask: ScheduleItem?
 
     private var entries: [TimelineEntry] {
@@ -11,7 +12,8 @@ struct TimelineView: View {
         } else if let sleep = sync.snapshot.sleep {
             result.append(contentsOf: TimelineEntry.sleep(sleep))
         }
-        result.append(contentsOf: (sync.snapshot.freeTime ?? []).compactMap(TimelineEntry.freeTime))
+        let freeTimeEntries = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeEntries(on: sync.snapshot.date)
+        result.append(contentsOf: freeTimeEntries.compactMap(TimelineEntry.freeTime))
         result.append(contentsOf: sync.snapshot.caffeine.compactMap(TimelineEntry.caffeine))
         return result.sorted { $0.startMinute < $1.startMinute }
     }
@@ -41,6 +43,11 @@ struct TimelineView: View {
             .background(Color.trackerGroupedBackground)
             .sheet(item: $selectedTask) { task in
                 EditTaskView(task: task)
+            }
+            .task {
+                if mediaSync.snapshot.fetchedAt == .distantPast {
+                    await mediaSync.refresh()
+                }
             }
         }
     }
@@ -403,7 +410,7 @@ private struct TimelineEntry: Identifiable {
             startMinute: start,
             endMinute: min(max(end ?? fallbackEnd, start + 1), 24 * 60),
             priorityLevel: -1,
-            kind: .freeTime,
+            kind: item.id.hasPrefix("media-") ? .mediaFreeTime : .freeTime,
             task: nil
         )
     }
@@ -436,6 +443,7 @@ private struct TimelineEntry: Identifiable {
     enum Kind {
         case sleep
         case freeTime
+        case mediaFreeTime
         case caffeine
         case schedule(priority: Int)
 
@@ -445,6 +453,8 @@ private struct TimelineEntry: Identifiable {
                 return .blue
             case .freeTime:
                 return .red
+            case .mediaFreeTime:
+                return .purple
             case .caffeine:
                 return .gray
             case let .schedule(priority):

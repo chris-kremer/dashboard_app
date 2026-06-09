@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(SyncController.self) private var sync
+    @Environment(MediaSyncController.self) private var mediaSync
     @State private var settings = AppSettings.shared
     @State private var token = AppSettings.shared.apiToken
 
@@ -11,7 +12,10 @@ struct SettingsView: View {
                 Section("Refresh") {
                     Stepper("Every \(settings.refreshIntervalMinutes) minutes", value: $settings.refreshIntervalMinutes, in: 5...240, step: 5)
                     Button("Force refresh") {
-                        Task { await sync.refresh() }
+                        Task {
+                            await sync.refresh()
+                            await mediaSync.refresh()
+                        }
                     }
                 }
 
@@ -20,6 +24,18 @@ struct SettingsView: View {
                     LabeledContent("Pending writes", value: "\(sync.syncState.pendingOperations.count)")
                     LabeledContent("Today open tasks", value: "\(SharedCache.shared.loadSnapshot()?.todayOpenTasks.count ?? 0)")
                     if let error = sync.syncState.lastError {
+                        Text(error)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section("Media Sync") {
+                    LabeledContent("Last media sync", value: mediaSync.snapshot.fetchedAt == .distantPast ? "Never" : mediaSync.snapshot.fetchedAt.formatted(date: .abbreviated, time: .shortened))
+                    LabeledContent("Media events", value: "\(mediaSync.snapshot.events.count)")
+                    Button("Refresh media") {
+                        Task { await mediaSync.refresh() }
+                    }
+                    if let error = mediaSync.lastError {
                         Text(error)
                             .foregroundStyle(.red)
                     }
@@ -48,6 +64,8 @@ private struct AdvancedSettingsView: View {
         Form {
             Section("API") {
                 TextField("Base URL", text: $settings.apiBaseURL)
+                    .trackerURLInput()
+                TextField("Media API URL", text: $settings.mediaAPIBaseURL)
                     .trackerURLInput()
                 SecureField("API token", text: $token)
                     .onSubmit { settings.apiToken = token }

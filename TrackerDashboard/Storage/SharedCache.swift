@@ -26,12 +26,20 @@ final class SharedCache {
         load(HealthSleepEntry.self, from: "health-sleep.json")
     }
 
+    func loadMediaSnapshot() -> MediaSnapshot {
+        load(MediaSnapshot.self, from: "media-snapshot.json") ?? .empty
+    }
+
     func saveSyncState(_ state: SyncState) throws {
         try save(state, to: "sync-state.json")
     }
 
     func saveHealthSleep(_ sleep: HealthSleepEntry) throws {
         try save(sleep, to: "health-sleep.json")
+    }
+
+    func saveMediaSnapshot(_ snapshot: MediaSnapshot) throws {
+        try save(snapshot, to: "media-snapshot.json")
     }
 
     func upsertTask(_ task: ScheduleItem) throws {

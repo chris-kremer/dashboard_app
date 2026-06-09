@@ -2,6 +2,7 @@ import SwiftUI
 
 struct InsightsView: View {
     @Environment(SyncController.self) private var sync
+    @Environment(MediaSyncController.self) private var mediaSync
 
     private var adjustedWorkloadMinutes: Int {
         workloadItems.reduce(0) { total, item in
@@ -61,6 +62,22 @@ struct InsightsView: View {
 
     private var loggedMinutes: Int {
         mergedLoggedIntervals.reduce(0) { $0 + max(0, min($1.end, loggedCoverageDenominatorMinutes) - $1.start) }
+    }
+
+    private var trackedFreeTimeEntries: [FreeTimeEntry] {
+        (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeEntries(on: sync.snapshot.date)
+    }
+
+    private var trackedFreeTimeMinutes: Int {
+        trackedFreeTimeEntries.reduce(0) { $0 + ($1.durationMinutes ?? 0) }
+    }
+
+    private var mediaFreeTimeMinutes: Int {
+        mediaSync.trackedFreeTimeMinutes(on: sync.snapshot.date)
+    }
+
+    private var todaysMediaEvents: [MediaEvent] {
+        mediaSync.events(on: sync.snapshot.date)
     }
 
     private var loggedCoverageDenominatorMinutes: Int {
@@ -181,6 +198,8 @@ struct InsightsView: View {
                     if sync.healthSleep != nil || sync.snapshot.sleep != nil {
                         sleepCard()
                     }
+
+                    trackedFreeTimeCard
                 }
                 .padding(.horizontal)
                 .padding(.top, 18)
@@ -222,6 +241,78 @@ struct InsightsView: View {
         }
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var trackedFreeTimeCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Tracked Free Time", systemImage: "play.rectangle.on.rectangle.fill")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if mediaSync.isRefreshing {
+                    ProgressView()
+                } else {
+                    Button {
+                        Task { await mediaSync.refresh() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Refresh media free time")
+                }
+            }
+
+            HStack(spacing: 12) {
+                metricPair(title: "Total", value: minutesLabel(trackedFreeTimeMinutes), tint: .purple)
+                Divider()
+                metricPair(title: "Media", value: minutesLabel(mediaFreeTimeMinutes), tint: .purple)
+                Divider()
+                metricPair(title: "Events", value: "\(todaysMediaEvents.count)", tint: .purple)
+            }
+            .frame(height: 48)
+
+            if trackedFreeTimeEntries.isEmpty {
+                Text("No tracked free-time entries for this date.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(trackedFreeTimeEntries) { entry in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.label)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(freeTimeDetail(entry))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(minutesLabel(entry.durationMinutes ?? 0))
+                                .font(.headline.monospacedDigit().weight(.bold))
+                                .foregroundStyle(.purple)
+                        }
+                    }
+                }
+            }
+
+            if let status = mediaSync.snapshot.status {
+                Text(mediaStatusText(status))
+                    .font(.caption)
+                    .foregroundStyle(mediaStatusIsStale(status) ? .orange : .secondary)
+            } else if let error = mediaSync.lastError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(16)
+        .background(Color.purple.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .task {
+            if mediaSync.snapshot.fetchedAt == .distantPast {
+                await mediaSync.refresh()
+            }
+        }
     }
 
     private func insightCard(title: String, value: String, detail: String, systemImage: String, tint: Color, showsDisclosure: Bool = false) -> some View {
@@ -392,7 +483,7 @@ struct InsightsView: View {
 
     private var loggedIntervals: [LoggedInterval] {
         var intervals = sync.snapshot.schedule.compactMap(scheduleLoggedInterval)
-        intervals.append(contentsOf: sync.snapshot.freeTime?.compactMap(freeTimeLoggedInterval) ?? [])
+        intervals.append(contentsOf: trackedFreeTimeEntries.compactMap(freeTimeLoggedInterval))
         if let healthSleep = sync.healthSleep {
             intervals.append(contentsOf: healthSleepLoggedIntervals(healthSleep))
         } else if let sleep = sync.snapshot.sleep {
@@ -451,6 +542,25 @@ struct InsightsView: View {
         let parts = value.split(separator: ":").compactMap { Int(String($0)) }
         guard parts.count >= 2 else { return nil }
         return min(max(parts[0] * 60 + parts[1], 0), 24 * 60)
+    }
+
+    private func freeTimeDetail(_ entry: FreeTimeEntry) -> String {
+        if let start = entry.start, let end = entry.end {
+            return "\(start)-\(end)"
+        }
+        return entry.time ?? "Tracked automatically"
+    }
+
+    private func mediaStatusText(_ status: MediaStatus) -> String {
+        let youtube = status.youtube.latestEventAt?.formatted(date: .abbreviated, time: .shortened) ?? "missing"
+        let x = status.x.latestEventAt?.formatted(date: .abbreviated, time: .shortened) ?? "missing"
+        return "Latest media exports: YouTube \(youtube), X \(x)"
+    }
+
+    private func mediaStatusIsStale(_ status: MediaStatus) -> Bool {
+        let latest = [status.youtube.latestEventAt, status.x.latestEventAt].compactMap { $0 }.max()
+        guard let latest else { return true }
+        return Date().timeIntervalSince(latest) > 24 * 60 * 60
     }
 }
 

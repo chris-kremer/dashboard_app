@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct TrackerDashboardApp: App {
     @State private var syncController = SyncController.shared
+    @State private var mediaSyncController = MediaSyncController.shared
 
     init() {
         SleepReminderScheduler.requestAuthorization()
@@ -17,11 +18,13 @@ struct TrackerDashboardApp: App {
         WindowGroup {
             RootView()
                 .environment(syncController)
+                .environment(mediaSyncController)
                 .task {
 #if os(iOS)
                     await syncController.refreshHealthSleep()
 #endif
                     await syncController.refresh()
+                    await mediaSyncController.refresh()
                 }
         }
     }

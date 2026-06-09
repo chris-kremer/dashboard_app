@@ -78,15 +78,18 @@ final class SyncController {
             let existingIds = Set(snapshot.schedule.compactMap { item -> String? in
                 item.source == "healthkit-workout" ? item.sourceId : nil
             })
-            let missing = workouts.filter { !existingIds.contains($0.id) }
+            let missing = workouts.filter { workout in
+                !existingIds.contains(workout.id) && !existingIds.contains(workout.workoutId)
+            }
             guard !missing.isEmpty else { return false }
 
             for workout in missing {
+                let segmentNote = workout.segmentCount > 1 ? " segment \(workout.segmentIndex)/\(workout.segmentCount)" : ""
                 _ = try await apiClient.createTask(CreateTaskRequest(
                     date: workout.date,
                     task: workout.title,
                     category: "sports",
-                    comment: "HealthKit workout",
+                    comment: "HealthKit workout\(segmentNote)",
                     priority: 2,
                     estimateMinutes: 30,
                     start: workout.start,

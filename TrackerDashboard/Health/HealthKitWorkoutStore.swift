@@ -5,10 +5,13 @@ import HealthKit
 
 struct HealthWorkoutEntry: Equatable {
     var id: String
+    var workoutId: String
     var date: String
     var title: String
     var start: String
     var stop: String
+    var segmentIndex: Int
+    var segmentCount: Int
 }
 
 final class HealthKitWorkoutStore {
@@ -35,15 +38,7 @@ final class HealthKitWorkoutStore {
         let samples = try await workouts(predicate: predicate)
         return samples
             .filter { $0.endDate > $0.startDate }
-            .map { workout in
-                HealthWorkoutEntry(
-                    id: workout.uuid.uuidString,
-                    date: Date.trackerDateFormatter.string(from: workout.startDate),
-                    title: Self.title(for: workout.workoutActivityType),
-                    start: Date.trackerTimeFormatter.string(from: workout.startDate),
-                    stop: Date.trackerTimeFormatter.string(from: workout.endDate)
-                )
-            }
+            .flatMap(Self.entries)
     }
 
     private func workouts(predicate: NSPredicate) async throws -> [HKWorkout] {
@@ -97,6 +92,59 @@ final class HealthKitWorkoutStore {
         default:
             return "Workout"
         }
+    }
+
+    private static func entries(for workout: HKWorkout) -> [HealthWorkoutEntry] {
+        let workoutId = workout.uuid.uuidString
+        let intervals = activeIntervals(for: workout)
+        return intervals.enumerated().map { index, interval in
+            HealthWorkoutEntry(
+                id: "\(workoutId):segment:\(index + 1)",
+                workoutId: workoutId,
+                date: Date.trackerDateFormatter.string(from: interval.start),
+                title: title(for: workout.workoutActivityType),
+                start: Date.trackerTimeFormatter.string(from: interval.start),
+                stop: Date.trackerTimeFormatter.string(from: interval.end),
+                segmentIndex: index + 1,
+                segmentCount: intervals.count
+            )
+        }
+    }
+
+    private static func activeIntervals(for workout: HKWorkout) -> [DateInterval] {
+        let events = (workout.workoutEvents ?? [])
+            .filter { $0.type == .pause || $0.type == .resume }
+            .sorted { $0.dateInterval.start < $1.dateInterval.start }
+
+        guard !events.isEmpty else {
+            return [DateInterval(start: workout.startDate, end: workout.endDate)]
+        }
+
+        var intervals: [DateInterval] = []
+        var activeStart: Date? = workout.startDate
+
+        for event in events {
+            let eventDate = min(max(event.dateInterval.start, workout.startDate), workout.endDate)
+            switch event.type {
+            case .pause:
+                if let start = activeStart, eventDate > start {
+                    intervals.append(DateInterval(start: start, end: eventDate))
+                }
+                activeStart = nil
+            case .resume:
+                if activeStart == nil {
+                    activeStart = eventDate
+                }
+            default:
+                break
+            }
+        }
+
+        if let start = activeStart, workout.endDate > start {
+            intervals.append(DateInterval(start: start, end: workout.endDate))
+        }
+
+        return intervals.isEmpty ? [DateInterval(start: workout.startDate, end: workout.endDate)] : intervals
     }
 }
 #endif

@@ -17,6 +17,8 @@ struct LockScreenStatusWidget: Widget {
     private static var supportedFamilies: [WidgetFamily] {
 #if os(macOS)
         [.systemSmall]
+#elseif os(watchOS)
+        [.accessoryCircular, .accessoryRectangular, .accessoryInline]
 #else
         [.accessoryCircular, .accessoryRectangular]
 #endif
@@ -68,6 +70,8 @@ struct LockScreenStatusWidgetView: View {
                 Text("\(completion.percent)%")
             }
             .gaugeStyle(.accessoryCircular)
+        case .accessoryInline:
+            Text("\(completion.percent)% done")
         default:
             VStack(alignment: .leading) {
                 Text("\(completion.percent)% done")

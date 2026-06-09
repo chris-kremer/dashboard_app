@@ -11,7 +11,11 @@ struct TaskListWidget: Widget {
         }
         .configurationDisplayName("Tracker Tasks")
         .description("Shows open tracker tasks and quick completion buttons.")
+#if os(watchOS)
+        .supportedFamilies([])
+#else
         .supportedFamilies([.systemMedium, .systemLarge])
+#endif
     }
 }
 
@@ -19,7 +23,13 @@ struct TaskListWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: TrackerWidgetEntry
 
-    private var limit: Int { family == .systemLarge ? 6 : 3 }
+    private var limit: Int {
+#if os(watchOS)
+        3
+#else
+        family == .systemLarge ? 6 : 3
+#endif
+    }
 
     private var tasks: [ScheduleItem] {
         Array(entry.snapshot.todayOpenTasks.prefix(limit))
@@ -42,6 +52,7 @@ struct TaskListWidgetView: View {
             ForEach(tasks) { task in
                 taskRow(task)
             }
+#if !os(watchOS)
             if family == .systemLarge, let nextBlock {
                 Divider()
                 Label("\(nextBlock.start ?? "") \(nextBlock.task)", systemImage: "clock")
@@ -49,6 +60,7 @@ struct TaskListWidgetView: View {
                     .lineLimit(1)
                     .foregroundStyle(.secondary)
             }
+#endif
             Spacer(minLength: 0)
         }
         .padding()

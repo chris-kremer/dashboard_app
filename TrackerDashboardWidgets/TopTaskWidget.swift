@@ -12,7 +12,11 @@ struct TopTaskWidget: Widget {
         }
         .configurationDisplayName("Top Task")
         .description("Shows the top open tracker task.")
+#if os(watchOS)
+        .supportedFamilies([])
+#else
         .supportedFamilies([.systemSmall])
+#endif
     }
 }
 

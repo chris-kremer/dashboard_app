@@ -107,6 +107,27 @@
 		B2000000000000000000001E /* SleepEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* SleepEditView.swift */; };
 		B2000000000000000000001F /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* Resources/Assets.xcassets */; };
 		C20000000000000000000002 /* SleepReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000001 /* SleepReminderScheduler.swift */; };
+		W20000000000000000000001 /* TrackerDashboardWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000001 /* TrackerDashboardWatchApp.swift */; };
+		W20000000000000000000002 /* WatchTrackerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000002 /* WatchTrackerStore.swift */; };
+		W20000000000000000000003 /* WatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000003 /* WatchRootView.swift */; };
+		W20000000000000000000004 /* WatchTaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000004 /* WatchTaskDetailView.swift */; };
+		W20000000000000000000012 /* WatchSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000006 /* WatchSettingsView.swift */; };
+		W20000000000000000000005 /* TrackerAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* TrackerAPIClient.swift */; };
+		W20000000000000000000006 /* TaskStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TaskStatus.swift */; };
+		W20000000000000000000007 /* ScheduleItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* ScheduleItem.swift */; };
+		W20000000000000000000008 /* CaffeineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CaffeineEntry.swift */; };
+		W20000000000000000000009 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
+		W2000000000000000000000A /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
+		W2000000000000000000000B /* FreeTimeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* FreeTimeEntry.swift */; };
+		W20000000000000000000013 /* HealthSleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HealthSleepEntry.swift */; };
+		W2000000000000000000000C /* TrackerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* TrackerSnapshot.swift */; };
+		W20000000000000000000015 /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* SyncState.swift */; };
+		W2000000000000000000000D /* TrackerRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* TrackerRequests.swift */; };
+		W2000000000000000000000E /* TrackerJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000D /* TrackerJSON.swift */; };
+		W20000000000000000000016 /* SharedCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000E /* SharedCache.swift */; };
+		W2000000000000000000000F /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* KeychainStore.swift */; };
+		W20000000000000000000010 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* AppSettings.swift */; };
+		W20000000000000000000011 /* TrackerDashboardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* TrackerDashboardWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -118,6 +139,13 @@
 			remoteInfo = TrackerDashboardWidgets;
 		};
 		B40000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A00000000000000000000005;
+			remoteInfo = TrackerDashboardWidgets;
+		};
+		W40000000000000000000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A00000000000000000000001 /* Project object */;
 			proxyType = 1;
@@ -145,6 +173,17 @@
 			dstSubfolderSpec = 13;
 			files = (
 				B20000000000000000000020 /* TrackerDashboardWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		W00000000000000000000006 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				W20000000000000000000011 /* TrackerDashboardWidgets.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -208,6 +247,12 @@
 		D10000000000000000000001 /* HealthSleepEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSleepEntry.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* HealthKitSleepStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSleepStore.swift; sourceTree = "<group>"; };
 		D10000000000000000000003 /* HealthKitWorkoutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitWorkoutStore.swift; sourceTree = "<group>"; };
+		W10000000000000000000001 /* TrackerDashboardWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerDashboardWatchApp.swift; sourceTree = "<group>"; };
+		W10000000000000000000002 /* WatchTrackerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTrackerStore.swift; sourceTree = "<group>"; };
+		W10000000000000000000003 /* WatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRootView.swift; sourceTree = "<group>"; };
+		W10000000000000000000004 /* WatchTaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTaskDetailView.swift; sourceTree = "<group>"; };
+		W10000000000000000000005 /* TrackerDashboardWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrackerDashboardWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		W10000000000000000000006 /* WatchSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -233,6 +278,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		W00000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -242,6 +294,7 @@
 				A00000000000000000000010 /* TrackerDashboard */,
 				A00000000000000000000016 /* TrackerDashboardIntents */,
 				A00000000000000000000017 /* TrackerDashboardWidgets */,
+				W00000000000000000000004 /* TrackerDashboardWatch */,
 				A00000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -252,6 +305,7 @@
 				A1000000000000000000002A /* TrackerDashboard.app */,
 				A10000000000000000000023 /* TrackerDashboardWidgets.appex */,
 				B10000000000000000000005 /* TrackerDashboardMac.app */,
+				W10000000000000000000005 /* TrackerDashboardWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -395,6 +449,18 @@
 			path = Health;
 			sourceTree = "<group>";
 		};
+		W00000000000000000000004 /* TrackerDashboardWatch */ = {
+			isa = PBXGroup;
+			children = (
+				W10000000000000000000001 /* TrackerDashboardWatchApp.swift */,
+				W10000000000000000000002 /* WatchTrackerStore.swift */,
+				W10000000000000000000003 /* WatchRootView.swift */,
+				W10000000000000000000004 /* WatchTaskDetailView.swift */,
+				W10000000000000000000006 /* WatchSettingsView.swift */,
+			);
+			path = TrackerDashboardWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -454,6 +520,25 @@
 			productReference = B10000000000000000000005 /* TrackerDashboardMac.app */;
 			productType = "com.apple.product-type.application";
 		};
+		W00000000000000000000005 /* TrackerDashboardWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = W70000000000000000000001 /* Build configuration list for PBXNativeTarget "TrackerDashboardWatch" */;
+			buildPhases = (
+				W00000000000000000000001 /* Sources */,
+				W00000000000000000000002 /* Frameworks */,
+				W00000000000000000000003 /* Resources */,
+				W00000000000000000000006 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				W50000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = TrackerDashboardWatch;
+			productName = TrackerDashboardWatch;
+			productReference = W10000000000000000000005 /* TrackerDashboardWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -471,6 +556,9 @@
 						CreatedOnToolsVersion = 16.2;
 					};
 					B00000000000000000000005 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					W00000000000000000000005 = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
@@ -491,6 +579,7 @@
 				A00000000000000000000004 /* TrackerDashboard */,
 				A00000000000000000000005 /* TrackerDashboardWidgets */,
 				B00000000000000000000005 /* TrackerDashboardMac */,
+				W00000000000000000000005 /* TrackerDashboardWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -518,6 +607,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B2000000000000000000001F /* Resources/Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		W00000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -640,6 +736,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		W00000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				W20000000000000000000001 /* TrackerDashboardWatchApp.swift in Sources */,
+				W20000000000000000000002 /* WatchTrackerStore.swift in Sources */,
+				W20000000000000000000003 /* WatchRootView.swift in Sources */,
+				W20000000000000000000004 /* WatchTaskDetailView.swift in Sources */,
+				W20000000000000000000012 /* WatchSettingsView.swift in Sources */,
+				W20000000000000000000005 /* TrackerAPIClient.swift in Sources */,
+				W20000000000000000000006 /* TaskStatus.swift in Sources */,
+				W20000000000000000000007 /* ScheduleItem.swift in Sources */,
+				W20000000000000000000008 /* CaffeineEntry.swift in Sources */,
+				W20000000000000000000009 /* FoodEntry.swift in Sources */,
+				W2000000000000000000000A /* SleepEntry.swift in Sources */,
+				W2000000000000000000000B /* FreeTimeEntry.swift in Sources */,
+				W20000000000000000000013 /* HealthSleepEntry.swift in Sources */,
+				W2000000000000000000000C /* TrackerSnapshot.swift in Sources */,
+				W20000000000000000000015 /* SyncState.swift in Sources */,
+				W2000000000000000000000D /* TrackerRequests.swift in Sources */,
+				W2000000000000000000000E /* TrackerJSON.swift in Sources */,
+				W20000000000000000000016 /* SharedCache.swift in Sources */,
+				W2000000000000000000000F /* KeychainStore.swift in Sources */,
+				W20000000000000000000010 /* AppSettings.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -652,6 +775,11 @@
 			isa = PBXTargetDependency;
 			target = A00000000000000000000005 /* TrackerDashboardWidgets */;
 			targetProxy = B40000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		W50000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A00000000000000000000005 /* TrackerDashboardWidgets */;
+			targetProxy = W40000000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -797,13 +925,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.chriskremer.TrackerDashboard.widgets;
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.chriskremer.TrackerDashboard.mac.widgets;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=watch*]" = com.chriskremer.TrackerDashboard.watchkitapp.widgets;
 				PRODUCT_BUNDLE_PACKAGE_TYPE = "XPC!";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx watchos watchsimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,4";
 			};
 			name = Debug;
 		};
@@ -825,13 +954,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.chriskremer.TrackerDashboard.widgets;
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.chriskremer.TrackerDashboard.mac.widgets;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=watch*]" = com.chriskremer.TrackerDashboard.watchkitapp.widgets;
 				PRODUCT_BUNDLE_PACKAGE_TYPE = "XPC!";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx watchos watchsimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,4";
 			};
 			name = Release;
 		};
@@ -894,6 +1024,62 @@
 			};
 			name = Release;
 		};
+		W60000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Y6786ATMVK;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Tracker";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_WKApplication = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chriskremer.TrackerDashboard.watchkitapp;
+				PRODUCT_BUNDLE_PACKAGE_TYPE = APPL;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		W60000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Y6786ATMVK;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Tracker";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_WKApplication = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chriskremer.TrackerDashboard.watchkitapp;
+				PRODUCT_BUNDLE_PACKAGE_TYPE = APPL;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -930,6 +1116,15 @@
 			buildConfigurations = (
 				B60000000000000000000001 /* Debug */,
 				B60000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		W70000000000000000000001 /* Build configuration list for PBXNativeTarget "TrackerDashboardWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				W60000000000000000000001 /* Debug */,
+				W60000000000000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

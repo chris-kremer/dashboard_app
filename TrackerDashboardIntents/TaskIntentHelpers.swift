@@ -16,6 +16,15 @@ enum TaskIntentHelpers {
         WidgetCenter.shared.reloadAllTimelines()
 
         do {
+            _ = try await TrackerAPIClient.shared.updateTask(rowNumber: task.rowNumber, patch: TaskPatchRequest(
+                priority: nil,
+                estimateMinutes: nil,
+                comment: nil,
+                delay: nil,
+                start: nil,
+                stop: stopTime,
+                status: nil
+            ))
             let updated = try await TrackerAPIClient.shared.completeTask(rowNumber: task.rowNumber, source: source, stop: stopTime)
             try SharedCache.shared.upsertTask(updated)
             WidgetCenter.shared.reloadAllTimelines()

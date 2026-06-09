@@ -135,6 +135,15 @@ final class SyncController {
         reloadWidgets()
 
         await perform(kind: .completeTask, request: CompleteTaskRequest(source: source, stop: stopTime)) {
+            _ = try await apiClient.updateTask(rowNumber: task.rowNumber, patch: TaskPatchRequest(
+                priority: nil,
+                estimateMinutes: nil,
+                comment: nil,
+                delay: nil,
+                start: nil,
+                stop: stopTime,
+                status: nil
+            ))
             let item = try await apiClient.completeTask(rowNumber: task.rowNumber, source: source, stop: stopTime)
             try cache.upsertTask(item)
             snapshot = cache.loadSnapshot() ?? snapshot

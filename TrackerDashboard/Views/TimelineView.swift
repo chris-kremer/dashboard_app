@@ -372,17 +372,26 @@ private struct TimelineEntry: Identifiable {
     }
 
     static func healthSleep(_ item: HealthSleepEntry) -> [TimelineEntry] {
-        item.intervals.flatMap { interval -> [TimelineEntry] in
-            let start = minutes(interval.startTime) ?? 0
-            let end = minutes(interval.endTime) ?? start + max(interval.durationMinutes, 30)
-            if end < start {
-                return [
-                    healthSleepEntry(interval, start: start, end: 24 * 60, suffix: "late"),
-                    healthSleepEntry(interval, start: 0, end: max(end, 30), suffix: "early")
-                ]
-            }
-            return [healthSleepEntry(interval, start: start, end: end, suffix: "main")]
+        guard let firstStart = item.intervals.map(\.start).min(),
+              let lastEnd = item.intervals.map(\.end).max(),
+              lastEnd > firstStart
+        else { return [] }
+
+        let session = HealthSleepInterval(
+            id: item.date,
+            start: firstStart,
+            end: lastEnd
+        )
+        let start = minutes(session.startTime) ?? 0
+        let end = minutes(session.endTime) ?? start + max(session.durationMinutes, 30)
+
+        if !Calendar.current.isDate(firstStart, inSameDayAs: lastEnd) || end < start {
+            return [
+                healthSleepEntry(session, start: start, end: 24 * 60, suffix: "late"),
+                healthSleepEntry(session, start: 0, end: max(end, 30), suffix: "early")
+            ]
         }
+        return [healthSleepEntry(session, start: start, end: end, suffix: "main")]
     }
 
     private static func healthSleepEntry(_ interval: HealthSleepInterval, start: Int, end: Int, suffix: String) -> TimelineEntry {

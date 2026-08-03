@@ -31,20 +31,33 @@ final class HealthKitSleepStore {
         let predicate = HKQuery.predicateForSamples(withStart: queryStart, end: dayEnd, options: [.strictEndDate])
         let samples = try await samples(type: sleepType, predicate: predicate)
 
-        let intervals = samples
-            .filter(Self.isAsleepSample)
-            .compactMap { sample -> HealthSleepInterval? in
-                guard sample.endDate > sample.startDate else { return nil }
-                return HealthSleepInterval(id: sample.uuid.uuidString, start: sample.startDate, end: sample.endDate)
+        let phases = samples
+            .compactMap { sample -> HealthSleepPhaseInterval? in
+                guard sample.endDate > sample.startDate,
+                      let phase = Self.phase(for: sample)
+                else { return nil }
+                return HealthSleepPhaseInterval(
+                    id: sample.uuid.uuidString,
+                    phase: phase,
+                    start: sample.startDate,
+                    end: sample.endDate
+                )
             }
             .sorted { $0.start < $1.start }
+
+        let intervals = phases
+            .filter { $0.phase.isAsleep }
+            .map { phase in
+                HealthSleepInterval(id: phase.id, start: phase.start, end: phase.end)
+            }
 
         guard !intervals.isEmpty else { return nil }
         return HealthSleepEntry(
             date: Date.trackerDateFormatter.string(from: dayStart),
             intervals: Self.merged(intervals),
             source: "healthkit",
-            syncedAt: Date()
+            syncedAt: Date(),
+            phases: phases
         )
     }
 
@@ -62,16 +75,22 @@ final class HealthKitSleepStore {
         }
     }
 
-    private static func isAsleepSample(_ sample: HKCategorySample) -> Bool {
+    private static func phase(for sample: HKCategorySample) -> HealthSleepPhase? {
         switch sample.value {
+        case HKCategoryValueSleepAnalysis.inBed.rawValue:
+            return .inBed
+        case HKCategoryValueSleepAnalysis.awake.rawValue:
+            return .awake
         case HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
-            return true
-        case HKCategoryValueSleepAnalysis.asleepCore.rawValue,
-            HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
-            HKCategoryValueSleepAnalysis.asleepREM.rawValue:
-            return true
+            return .asleepUnspecified
+        case HKCategoryValueSleepAnalysis.asleepCore.rawValue:
+            return .core
+        case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
+            return .deep
+        case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
+            return .rem
         default:
-            return false
+            return nil
         }
     }
 

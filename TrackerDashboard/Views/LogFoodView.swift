@@ -14,7 +14,7 @@ struct LogFoodView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Meal / context", text: $mealContext)
+                TextField("Meal (Breakfast / Lunch / Dinner)", text: $mealContext)
                 TextField("Item", text: $item)
                 TextField("Amount / size", text: $amount)
                 TextField("Location", text: $location)

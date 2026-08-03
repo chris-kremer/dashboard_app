@@ -49,16 +49,22 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/tasks") {
-        return json(await appendTask(env, await request.json()), 201);
+        const task = await appendTask(env, await request.json());
+        await notifyTaskStateChanged(env);
+        return json(task, 201);
       }
 
       const taskMatch = url.pathname.match(/^\/tasks\/(\d+)(?:\/complete)?$/);
       if (taskMatch && request.method === "PATCH" && !url.pathname.endsWith("/complete")) {
-        return json(await patchTask(env, Number(taskMatch[1]), await request.json()));
+        const task = await patchTask(env, Number(taskMatch[1]), await request.json());
+        await notifyTaskStateChanged(env);
+        return json(task);
       }
       if (taskMatch && request.method === "POST" && url.pathname.endsWith("/complete")) {
         const body: { source?: string; stop?: string } = await request.json<{ source?: string; stop?: string }>().catch(() => ({}));
-        return json(await completeTask(env, Number(taskMatch[1]), body.source ?? "ios", body.stop));
+        const task = await completeTask(env, Number(taskMatch[1]), body.source ?? "ios", body.stop);
+        await notifyTaskStateChanged(env);
+        return json(task);
       }
 
       if (request.method === "POST" && url.pathname === "/caffeine") {
@@ -92,6 +98,14 @@ function authorizedWith(request: Request, token: string | undefined): boolean {
 function coordinator(env: Env): DurableObjectStub {
   const id = env.NUDGE_COORDINATOR.idFromName("primary");
   return env.NUDGE_COORDINATOR.get(id);
+}
+
+async function notifyTaskStateChanged(env: Env): Promise<void> {
+  try {
+    await coordinator(env).fetch(new Request("https://nudge/tasks-changed", { method: "POST" }));
+  } catch {
+    // Task writes must remain successful even if the optional nudge wake-up fails.
+  }
 }
 
 function json(value: unknown, status = 200): Response {

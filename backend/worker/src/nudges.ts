@@ -23,6 +23,7 @@ interface ActiveSource {
   personalizedAlertIndex?: number;
   personalizationAttempted?: boolean;
   personalizationContext?: NudgeGenerationContext;
+  suppressedByProductiveTask?: boolean;
 }
 
 interface DeviceRegistration {
@@ -156,6 +157,9 @@ export class NudgeCoordinator implements DurableObject {
     if (request.method === "POST" && url.pathname === "/devices") {
       return this.registerDevice(await request.json<Partial<DeviceRegistration>>());
     }
+    if (request.method === "POST" && url.pathname === "/tasks-changed") {
+      return this.handleTasksChanged();
+    }
     if (request.method === "POST" && url.pathname === "/test") {
       const now = Date.now();
       const result = await this.sendNudge("youtube", {
@@ -195,8 +199,10 @@ export class NudgeCoordinator implements DurableObject {
       if (result === "delivered") {
         source.lastNudgeAt = now;
         source.nextNudgeAt = randomFollowUpAt(now);
+        source.suppressedByProductiveTask = false;
       } else if (result === "suppressed") {
         source.nextNudgeAt = now + MINUTE_MS;
+        source.suppressedByProductiveTask = true;
       }
       sources[sourceName] = source;
       await this.state.storage.put(SOURCES_KEY, sources);
@@ -231,8 +237,10 @@ export class NudgeCoordinator implements DurableObject {
         if (result === "delivered") {
           sources[body.source]!.lastNudgeAt = now;
           sources[body.source]!.nextNudgeAt = randomFollowUpAt(now);
+          sources[body.source]!.suppressedByProductiveTask = false;
         } else if (result === "suppressed") {
           sources[body.source]!.nextNudgeAt = now + MINUTE_MS;
+          sources[body.source]!.suppressedByProductiveTask = true;
         }
       }
     } else {
@@ -272,6 +280,21 @@ export class NudgeCoordinator implements DurableObject {
     const sources = await this.activeSources(Date.now());
     await this.scheduleNextAlarm(Date.now(), sources, settings);
     return json({ ok: true, settings });
+  }
+
+  private async handleTasksChanged(): Promise<Response> {
+    const now = Date.now();
+    const settings = await this.settings();
+    const sources = await this.activeSources(now);
+    let rechecking = false;
+    for (const source of Object.values(sources)) {
+      if (!source.suppressedByProductiveTask) continue;
+      source.nextNudgeAt = now;
+      rechecking = true;
+    }
+    if (rechecking) await this.state.storage.put(SOURCES_KEY, sources);
+    await this.scheduleNextAlarm(now, sources, settings);
+    return json({ ok: true, rechecking });
   }
 
   private async registerDevice(body: Partial<DeviceRegistration>): Promise<Response> {

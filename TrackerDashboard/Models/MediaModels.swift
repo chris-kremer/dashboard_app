@@ -26,6 +26,80 @@ struct MediaEventsResponse: Codable, Equatable {
     let events: [MediaEvent]
 }
 
+struct MediaSessionsResponse: Codable, Equatable {
+    let sessions: [CloudMediaSession]
+}
+
+struct NudgeHistoryResponse: Codable, Equatable {
+    let records: [NudgeHistoryEntry]
+    let summary: NudgeHistorySummary
+}
+
+struct NudgeHistoryEntry: Codable, Identifiable, Equatable {
+    let id: String
+    let source: MediaSource
+    let sentAt: Date
+    let sessionStartedAt: Date
+    let sessionMinutes: Int
+    let dailyFreeTimeMinutes: Int
+    let title: String
+    let body: String
+    let generator: String
+    let angle: String
+    let escalation: String
+    let context: NudgeHistoryContext
+    let outcome: String
+    let closedAt: Date?
+    let secondsToClose: Int?
+
+    var date: String {
+        Date.trackerDateFormatter.string(from: sentAt)
+    }
+}
+
+struct NudgeHistoryContext: Codable, Equatable {
+    let contentTitle: String?
+    let contentAuthor: String?
+    let actualWake: String?
+    let minutesSinceWake: Int?
+    let completedTaskCount: Int
+    let suggestedTasks: [String]
+}
+
+struct NudgeHistorySummary: Codable, Equatable {
+    let total: Int
+    let evaluated: Int
+    let strong: Int
+    let moderate: Int
+    let late: Int
+    let ignored: Int
+    let successRate: Double
+    let aiCount: Int
+    let angles: [NudgeAngleSummary]
+}
+
+struct NudgeAngleSummary: Codable, Identifiable, Equatable {
+    let angle: String
+    let successes: Int
+    let failures: Int
+    let successRate: Double
+
+    var id: String { angle }
+}
+
+struct CloudMediaSession: Codable, Identifiable, Equatable {
+    let id: String
+    let source: MediaSource
+    let startedAt: Date
+    let endedAt: Date
+    let durationSeconds: Int
+    let active: Bool
+
+    var date: String {
+        Date.trackerDateFormatter.string(from: startedAt)
+    }
+}
+
 struct MediaEvent: Codable, Identifiable, Equatable {
     let source: MediaSource
     let type: String
@@ -68,9 +142,35 @@ struct MediaEventMetadata: Codable, Equatable {
 struct MediaSnapshot: Codable, Equatable {
     var status: MediaStatus?
     var events: [MediaEvent]
+    var sessions: [CloudMediaSession]?
     var fetchedAt: Date
 
     static var empty: MediaSnapshot {
-        MediaSnapshot(status: nil, events: [], fetchedAt: .distantPast)
+        MediaSnapshot(status: nil, events: [], sessions: [], fetchedAt: .distantPast)
     }
+}
+
+struct MediaUsageSummary: Equatable {
+    let youtubeMinutes: Int
+    let xMinutes: Int
+    let youtubeSessions: Int
+    let xSessions: Int
+    let longestSessionMinutes: Int
+
+    var totalMinutes: Int {
+        youtubeMinutes + xMinutes
+    }
+
+    var sessionCount: Int {
+        youtubeSessions + xSessions
+    }
+}
+
+struct MediaDailyUsage: Identifiable, Equatable {
+    let date: String
+    let youtubeMinutes: Int
+    let xMinutes: Int
+
+    var id: String { date }
+    var totalMinutes: Int { youtubeMinutes + xMinutes }
 }

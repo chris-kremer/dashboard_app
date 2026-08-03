@@ -42,6 +42,33 @@ actor TrackerAPIClient {
         try await sendJSON(request, method: "POST", path: "sleep", responseType: SleepEntry.self)
     }
 
+    func updateNudgeSettings(_ request: NudgeSettingsRequest) async throws {
+        _ = try await sendJSON(request, method: "PUT", path: "nudge/settings", responseType: NudgeAPIResponse.self)
+    }
+
+    func registerNudgeDevice(_ request: NudgeDeviceRequest) async throws {
+        _ = try await sendJSON(request, method: "POST", path: "nudge/devices", responseType: NudgeAPIResponse.self)
+    }
+
+    func sendNudgeCommand(_ request: NudgeCommandRequest) async throws {
+        _ = try await sendJSON(request, method: "POST", path: "nudge/command", responseType: NudgeAPIResponse.self)
+    }
+
+    func sendTestNudge() async throws {
+        _ = try await sendJSON(NudgeCommandRequest(command: "test", minutes: nil), method: "POST", path: "nudge/test", responseType: NudgeAPIResponse.self)
+    }
+
+    func fetchMediaSessions() async throws -> MediaSessionsResponse {
+        try await send(URLRequest(url: try baseURL().appendingPathComponent("media/sessions")), responseType: MediaSessionsResponse.self)
+    }
+
+    func fetchNudgeHistory(limit: Int = 100) async throws -> NudgeHistoryResponse {
+        var components = URLComponents(url: try baseURL().appendingPathComponent("nudge/history"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        guard let url = components?.url else { throw APIError.invalidURL }
+        return try await send(URLRequest(url: url), responseType: NudgeHistoryResponse.self)
+    }
+
     private func sendJSON<Request: Encodable, Response: Decodable>(
         _ body: Request,
         method: String,

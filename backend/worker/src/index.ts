@@ -1,17 +1,46 @@
 import { appendCaffeine, appendFood, appendTask, completeTask, patchTask, readSnapshot, upsertSleep } from "./sheets";
 import type { Env } from "./types";
+export { NudgeCoordinator } from "./nudges";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       const url = new URL(request.url);
 
+      if (request.method === "OPTIONS") {
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders()
+        });
+      }
+
       if (request.method === "GET" && url.pathname === "/health") {
         return json({ ok: true, version: env.VERSION ?? "1.0.0" });
       }
 
+      if (url.pathname === "/media/heartbeat") {
+        if (!authorizedWith(request, env.ADDON_API_TOKEN)) {
+          return corsJSON({ error: "unauthorized" }, 401);
+        }
+        if (request.method !== "POST") {
+          return corsJSON({ error: "method_not_allowed" }, 405);
+        }
+        return withCORS(await coordinator(env).fetch(new Request("https://nudge/heartbeat", request)));
+      }
+
       if (!authorized(request, env)) {
         return json({ error: "unauthorized" }, 401);
+      }
+
+      if (request.method === "GET" && url.pathname === "/media/sessions") {
+        return coordinator(env).fetch(new Request("https://nudge/sessions"));
+      }
+
+      if (url.pathname.startsWith("/nudge/")) {
+        const targetPath = url.pathname.slice("/nudge".length);
+        const target = new URL(`https://nudge${targetPath}`);
+        target.search = url.search;
+        return coordinator(env).fetch(new Request(target, request));
       }
 
       if (request.method === "GET" && url.pathname === "/snapshot") {
@@ -52,8 +81,17 @@ export default {
 };
 
 function authorized(request: Request, env: Env): boolean {
+  return authorizedWith(request, env.APP_API_TOKEN);
+}
+
+function authorizedWith(request: Request, token: string | undefined): boolean {
   const header = request.headers.get("Authorization") ?? "";
-  return header === `Bearer ${env.APP_API_TOKEN}`;
+  return Boolean(token) && header === `Bearer ${token}`;
+}
+
+function coordinator(env: Env): DurableObjectStub {
+  const id = env.NUDGE_COORDINATOR.idFromName("primary");
+  return env.NUDGE_COORDINATOR.get(id);
 }
 
 function json(value: unknown, status = 200): Response {
@@ -61,4 +99,25 @@ function json(value: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json; charset=utf-8" }
   });
+}
+
+function corsJSON(value: unknown, status = 200): Response {
+  return withCORS(json(value, status));
+}
+
+function withCORS(response: Response): Response {
+  const next = new Response(response.body, response);
+  for (const [key, value] of Object.entries(corsHeaders())) {
+    next.headers.set(key, value);
+  }
+  return next;
+}
+
+function corsHeaders(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Max-Age": "86400"
+  };
 }

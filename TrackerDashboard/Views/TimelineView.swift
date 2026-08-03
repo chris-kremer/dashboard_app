@@ -12,7 +12,7 @@ struct TimelineView: View {
         } else if let sleep = sync.snapshot.sleep {
             result.append(contentsOf: TimelineEntry.sleep(sleep))
         }
-        let freeTimeEntries = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeEntries(on: sync.snapshot.date)
+        let freeTimeEntries = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeTimelineEntries(on: sync.snapshot.date)
         result.append(contentsOf: freeTimeEntries.compactMap(TimelineEntry.freeTime))
         result.append(contentsOf: sync.snapshot.caffeine.compactMap(TimelineEntry.caffeine))
         return result.sorted { $0.startMinute < $1.startMinute }
@@ -46,7 +46,7 @@ struct TimelineView: View {
             }
             .task {
                 if mediaSync.snapshot.fetchedAt == .distantPast {
-                    await mediaSync.refresh()
+                    await mediaSync.refresh(date: sync.snapshot.date)
                 }
             }
         }

@@ -346,5 +346,10 @@ final class SyncController {
 #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
 #endif
+#if os(iOS)
+        Task {
+            await TaskLiveActivityCoordinator.shared.sync(with: snapshot)
+        }
+#endif
     }
 }

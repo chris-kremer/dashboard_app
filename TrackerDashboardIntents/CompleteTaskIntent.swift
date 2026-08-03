@@ -19,3 +19,7 @@ struct CompleteTaskIntent: AppIntent {
         return .result()
     }
 }
+
+#if os(iOS)
+extension CompleteTaskIntent: LiveActivityIntent {}
+#endif

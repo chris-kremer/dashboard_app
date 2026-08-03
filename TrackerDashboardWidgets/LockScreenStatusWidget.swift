@@ -250,7 +250,7 @@ private struct TaskLiveActivityLockScreenView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(state.suggestions.prefix(2)) { suggestion in
+                ForEach(state.suggestions.prefix(3)) { suggestion in
                     Button(intent: StartTaskIntent(rowId: suggestion.rowId)) {
                         HStack(spacing: 8) {
                             Image(systemName: "play.fill")
@@ -386,7 +386,7 @@ private struct TaskLiveActivityIslandBottomView: View {
             }
         } else {
             HStack(spacing: 12) {
-                ForEach(state.suggestions.prefix(2)) { suggestion in
+                ForEach(state.suggestions.prefix(3)) { suggestion in
                     Button(intent: StartTaskIntent(rowId: suggestion.rowId)) {
                         Label(suggestion.task, systemImage: "play.fill")
                             .font(.caption.weight(.semibold))

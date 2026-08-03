@@ -222,7 +222,7 @@ actor TaskLiveActivityCoordinator {
     private func suggestions(from snapshot: TrackerSnapshot) -> [TaskLiveActivityAttributes.Suggestion] {
         snapshot.todayOpenTasks
             .filter { $0.start == nil || $0.stop != nil }
-            .prefix(2)
+            .prefix(3)
             .map {
                 TaskLiveActivityAttributes.Suggestion(
                     rowId: $0.id,

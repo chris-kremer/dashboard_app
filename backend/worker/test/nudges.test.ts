@@ -50,6 +50,12 @@ describe("watch nudge variation", () => {
     ]))).toBe(false);
   });
 
+  it("ignores stale in-progress tasks from earlier dates", () => {
+    expect(hasProductiveTaskInProgress(snapshot([
+      task({ date: "2026-07-30" })
+    ]))).toBe(false);
+  });
+
   it("does not let a free-time task suppress free-time nudges", () => {
     expect(hasProductiveTaskInProgress(snapshot([
       task({ rowNumber: 2, category: "Free Time" }),

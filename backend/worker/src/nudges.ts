@@ -14,6 +14,7 @@ interface NudgeSettings {
 interface ActiveSource {
   startedAt: number;
   lastSeenAt: number;
+  inactiveSince?: number;
   lastNudgeAt?: number;
   nextNudgeAt?: number;
   contentTitle?: string;
@@ -128,6 +129,7 @@ const NUDGE_HISTORY_KEY = "nudge_history";
 // Explicit inactive heartbeats normally close a session. This longer fallback
 // keeps brief browser timer throttling from manufacturing a brand-new visit.
 const HEARTBEAT_TTL_MS = 4 * 60_000;
+const INACTIVE_HEARTBEAT_GRACE_MS = 5_000;
 const MINUTE_MS = 60_000;
 const NUDGE_INITIAL_DELAY_MINUTES = 0;
 const NUDGE_REPEAT_INTERVAL_MINUTES = 2;
@@ -190,12 +192,13 @@ export class NudgeCoordinator implements DurableObject {
     }
 
     const due = Object.entries(sources)
-      .filter(([, source]) => this.nextNudgeAt(source, settings) <= now)
+      .filter(([, source]) => !source.inactiveSince && this.nextNudgeAt(source, settings) <= now)
       .sort((a, b) => a[1].startedAt - b[1].startedAt);
 
     if (due.length > 0) {
       const [sourceName, source] = due[0] as [MediaSource, ActiveSource];
       const result = await this.sendNudge(sourceName, source, now);
+      console.log(JSON.stringify({ event: "nudge_alarm_result", source: sourceName, result }));
       if (result === "delivered") {
         source.lastNudgeAt = now;
         source.nextNudgeAt = randomFollowUpAt(now);
@@ -226,7 +229,7 @@ export class NudgeCoordinator implements DurableObject {
       const contentAuthor = cleanContextValue(body.author ?? body.channel, 80) || existing?.contentAuthor;
       const contentURL = cleanContextValue(body.url, 500) || existing?.contentURL;
       sources[body.source] = existing
-        ? { ...existing, lastSeenAt: now, contentTitle, contentAuthor, contentURL }
+        ? { ...existing, lastSeenAt: now, inactiveSince: undefined, contentTitle, contentAuthor, contentURL }
         : { startedAt: now, lastSeenAt: now, contentTitle, contentAuthor, contentURL };
 
       if (!existing && settings.enabled) {
@@ -244,15 +247,11 @@ export class NudgeCoordinator implements DurableObject {
         }
       }
     } else {
-      const completed = sources[body.source];
-      if (completed) {
-        await this.appendSession(body.source, completed, now);
-        await this.resolveSessionNudges(body.source, completed.startedAt, now);
-        if (settings.enabled && completed.lastNudgeAt) {
-          await this.sendReward(body.source, completed, now);
-        }
+      const pending = sources[body.source];
+      if (pending && pending.inactiveSince == null) {
+        pending.inactiveSince = now;
+        sources[body.source] = pending;
       }
-      delete sources[body.source];
     }
     await this.state.storage.put(SOURCES_KEY, sources);
     await this.scheduleNextAlarm(now, sources, settings);
@@ -261,7 +260,7 @@ export class NudgeCoordinator implements DurableObject {
     return json({
       ok: true,
       source: body.source,
-      active: Boolean(current),
+      active: Boolean(current && !current.inactiveSince),
       sessionStartedAt: current ? new Date(current.startedAt).toISOString() : null,
       nextNudgeAt: current
         ? new Date(this.nextNudgeAt(current, settings)).toISOString()
@@ -292,6 +291,7 @@ export class NudgeCoordinator implements DurableObject {
       source.nextNudgeAt = now;
       rechecking = true;
     }
+    console.log(JSON.stringify({ event: "task_state_changed", rechecking }));
     if (rechecking) await this.state.storage.put(SOURCES_KEY, sources);
     await this.scheduleNextAlarm(now, sources, settings);
     return json({ ok: true, rechecking });
@@ -338,11 +338,23 @@ export class NudgeCoordinator implements DurableObject {
     const stored = (await this.state.storage.get<Partial<Record<MediaSource, ActiveSource>>>(SOURCES_KEY)) ?? {};
     const active: Partial<Record<MediaSource, ActiveSource>> = {};
     for (const [sourceName, source] of Object.entries(stored) as [MediaSource, ActiveSource][]) {
-      if (now - source.lastSeenAt <= HEARTBEAT_TTL_MS) {
+      const inactiveExpired = source.inactiveSince != null
+        && now - source.inactiveSince >= INACTIVE_HEARTBEAT_GRACE_MS;
+      const heartbeatExpired = now - source.lastSeenAt > HEARTBEAT_TTL_MS;
+      if (!inactiveExpired && !heartbeatExpired) {
         active[sourceName] = source;
       } else {
-        await this.appendSession(sourceName, source, source.lastSeenAt);
-        await this.resolveSessionNudges(sourceName, source.startedAt, source.lastSeenAt);
+        const endedAt = source.inactiveSince ?? source.lastSeenAt;
+        console.log(JSON.stringify({
+          event: "media_session_expired",
+          source: sourceName,
+          reason: source.inactiveSince != null ? "inactive" : "heartbeat_timeout"
+        }));
+        await this.appendSession(sourceName, source, endedAt);
+        await this.resolveSessionNudges(sourceName, source.startedAt, endedAt);
+        if (source.lastNudgeAt && (await this.settings()).enabled) {
+          await this.sendReward(sourceName, source, endedAt);
+        }
       }
     }
     if (Object.keys(active).length !== Object.keys(stored).length) {
@@ -406,10 +418,13 @@ export class NudgeCoordinator implements DurableObject {
       await this.state.storage.deleteAlarm();
       return;
     }
-    const nextNudge = Math.min(
-      ...Object.values(sources).map(source => this.nextNudgeAt(source, settings))
-    );
-    const nextExpiry = Math.min(...Object.values(sources).map(source => source.lastSeenAt + HEARTBEAT_TTL_MS));
+    const nudgeTimes = Object.values(sources)
+      .filter(source => !source.inactiveSince)
+      .map(source => this.nextNudgeAt(source, settings));
+    const nextNudge = nudgeTimes.length > 0 ? Math.min(...nudgeTimes) : Number.POSITIVE_INFINITY;
+    const nextExpiry = Math.min(...Object.values(sources).map(source => source.inactiveSince != null
+      ? source.inactiveSince + INACTIVE_HEARTBEAT_GRACE_MS
+      : source.lastSeenAt + HEARTBEAT_TTL_MS));
     const desired = Math.min(nextNudge, nextExpiry);
     await this.state.storage.setAlarm(Math.max(desired, now + minimumDelay, now + 1_000));
   }
@@ -419,7 +434,17 @@ export class NudgeCoordinator implements DurableObject {
     let snapshot: TrackerSnapshot | undefined;
     try {
       snapshot = await readSnapshot(this.env, date);
-      if (hasProductiveTaskInProgress(snapshot)) return "suppressed";
+      const productiveTasks = productiveTasksInProgress(snapshot);
+      if (productiveTasks.length > 0) {
+        console.log(JSON.stringify({
+          event: "nudge_suppressed_productive_task",
+          source,
+          taskRows: productiveTasks.map(task => task.rowNumber),
+          taskDates: productiveTasks.map(task => task.date),
+          categories: productiveTasks.map(task => task.category)
+        }));
+        return "suppressed";
+      }
     } catch {
       // A temporary Sheets failure should not disable the existing nudge system.
     }
@@ -455,6 +480,7 @@ export class NudgeCoordinator implements DurableObject {
       dailyFreeTimeMinutes: dailyUsage.totalMinutes
     };
     const delivered = await this.deliver(payload);
+    console.log(JSON.stringify({ event: "nudge_delivery", source, delivered }));
     if (delivered && personalizedAlert) {
       session.personalizedAlertIndex = (session.personalizedAlertIndex ?? 0) + 1;
     }
@@ -753,11 +779,15 @@ function selectSuggestedTasks(snapshot: TrackerSnapshot): ScheduleItem[] {
 }
 
 export function hasProductiveTaskInProgress(snapshot: TrackerSnapshot): boolean {
+  return productiveTasksInProgress(snapshot).length > 0;
+}
+
+function productiveTasksInProgress(snapshot: TrackerSnapshot): ScheduleItem[] {
   const uniqueTasks = new Map<number, ScheduleItem>();
   for (const task of [...snapshot.schedule, ...snapshot.openTasks]) {
-    uniqueTasks.set(task.rowNumber, task);
+    if (task.date === snapshot.date) uniqueTasks.set(task.rowNumber, task);
   }
-  return [...uniqueTasks.values()].some(isProductiveTaskInProgress);
+  return [...uniqueTasks.values()].filter(isProductiveTaskInProgress);
 }
 
 function isProductiveTaskInProgress(task: ScheduleItem): boolean {

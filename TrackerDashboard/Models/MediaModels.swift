@@ -153,13 +153,10 @@ struct MediaSnapshot: Codable, Equatable {
 struct MediaUsageSummary: Equatable {
     let youtubeMinutes: Int
     let xMinutes: Int
+    let totalMinutes: Int
     let youtubeSessions: Int
     let xSessions: Int
     let longestSessionMinutes: Int
-
-    var totalMinutes: Int {
-        youtubeMinutes + xMinutes
-    }
 
     var sessionCount: Int {
         youtubeSessions + xSessions
@@ -170,7 +167,7 @@ struct MediaDailyUsage: Identifiable, Equatable {
     let date: String
     let youtubeMinutes: Int
     let xMinutes: Int
+    let totalMinutes: Int
 
     var id: String { date }
-    var totalMinutes: Int { youtubeMinutes + xMinutes }
 }

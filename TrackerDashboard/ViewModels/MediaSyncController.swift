@@ -77,20 +77,16 @@ final class MediaSyncController {
 
     func trackedFreeTimeMinutes(on date: String) -> Int {
         if snapshot.sessions != nil {
-            let seconds = sessions(on: date).reduce(0) { $0 + $1.durationSeconds }
-            return Int((Double(seconds) / 60).rounded())
+            return displayMinutes(uniqueUsageSeconds(sessions(on: date)))
         }
-        let totalSeconds = events(on: date).reduce(0) { total, event in
-            total + max(event.attentionSeconds, estimatedAttentionSeconds(for: event))
-        }
-        return Int((Double(totalSeconds) / 60).rounded())
+        return displayMinutes(uniqueUsageSeconds(events: events(on: date)))
     }
 
     func trackedFreeTimeEntries(on date: String) -> [FreeTimeEntry] {
         if snapshot.sessions != nil {
             let grouped = Dictionary(grouping: sessions(on: date), by: \.source)
             return grouped.compactMap { source, sessions in
-                let seconds = sessions.reduce(0) { $0 + $1.durationSeconds }
+                let seconds = uniqueUsageSeconds(sessions)
                 guard seconds > 0 else { return nil }
                 return FreeTimeEntry(
                     id: "media-\(source.rawValue)-\(date)",
@@ -106,9 +102,7 @@ final class MediaSyncController {
         }
         let grouped = Dictionary(grouping: events(on: date), by: \.source)
         return grouped.compactMap { source, events in
-            let totalSeconds = events.reduce(0) { total, event in
-                total + max(event.attentionSeconds, estimatedAttentionSeconds(for: event))
-            }
+            let totalSeconds = uniqueUsageSeconds(events: events)
             guard totalSeconds > 0 else { return nil }
             return FreeTimeEntry(
                 id: "media-\(source.rawValue)-\(date)",
@@ -164,8 +158,9 @@ final class MediaSyncController {
         let youtube = selected.filter { $0.source == .youtube }
         let x = selected.filter { $0.source == .x }
         return MediaUsageSummary(
-            youtubeMinutes: displayMinutes(youtube.reduce(0) { $0 + $1.durationSeconds }),
-            xMinutes: displayMinutes(x.reduce(0) { $0 + $1.durationSeconds }),
+            youtubeMinutes: displayMinutes(uniqueUsageSeconds(youtube)),
+            xMinutes: displayMinutes(uniqueUsageSeconds(x)),
+            totalMinutes: displayMinutes(uniqueUsageSeconds(selected)),
             youtubeSessions: youtube.count,
             xSessions: x.count,
             longestSessionMinutes: displayMinutes(selected.map(\.durationSeconds).max() ?? 0)
@@ -185,7 +180,8 @@ final class MediaSyncController {
             return MediaDailyUsage(
                 date: dayKey,
                 youtubeMinutes: summary.youtubeMinutes,
-                xMinutes: summary.xMinutes
+                xMinutes: summary.xMinutes,
+                totalMinutes: summary.totalMinutes
             )
         }
     }
@@ -230,6 +226,37 @@ final class MediaSyncController {
             return 0
         case .x:
             return 10
+        }
+    }
+
+    private func uniqueUsageSeconds(_ sessions: [CloudMediaSession]) -> Int {
+        uniqueUsageSeconds(sessions.map { ($0.startedAt, $0.endedAt) })
+    }
+
+    private func uniqueUsageSeconds(events: [MediaEvent]) -> Int {
+        let intervals = Dictionary(grouping: events, by: \.source)
+            .values
+            .flatMap { usageSessions(for: $0) }
+            .map { ($0.start, $0.end) }
+        return uniqueUsageSeconds(intervals)
+    }
+
+    private func uniqueUsageSeconds(_ intervals: [(start: Date, end: Date)]) -> Int {
+        let sorted = intervals
+            .filter { $0.end > $0.start }
+            .sorted { ($0.start, $0.end) < ($1.start, $1.end) }
+
+        var merged: [(start: Date, end: Date)] = []
+        for interval in sorted {
+            guard let previous = merged.last, interval.start <= previous.end else {
+                merged.append(interval)
+                continue
+            }
+            merged[merged.count - 1].end = max(previous.end, interval.end)
+        }
+
+        return merged.reduce(0) { total, interval in
+            total + max(0, Int(interval.end.timeIntervalSince(interval.start)))
         }
     }
 

@@ -288,7 +288,7 @@ struct InsightsView: View {
                 metricPair(title: "Total", value: minutesLabel(trackedFreeTimeMinutes), tint: .purple)
                 Divider()
                 metricPair(
-                    title: "Media",
+                    title: "Media total",
                     value: minutesLabel(mediaSync.snapshot.sessions == nil ? mediaFreeTimeMinutes : selectedMediaSummary.totalMinutes),
                     tint: .purple
                 )
@@ -560,7 +560,7 @@ struct InsightsView: View {
                     .frame(maxWidth: .infinity)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(
-                        "\(mediaDayAccessibilityLabel(day.date)), YouTube \(day.youtubeMinutes) minutes, X \(day.xMinutes) minutes"
+                        "\(mediaDayAccessibilityLabel(day.date)), YouTube \(day.youtubeMinutes) minutes, X \(day.xMinutes) minutes, unique total \(day.totalMinutes) minutes"
                     )
                 }
             }

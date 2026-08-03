@@ -60,6 +60,7 @@ interface NudgeAlert {
 type NudgeAngle = "morning" | "task" | "daily_total" | "content" | "repeat" | "generic";
 type NudgeOutcome = "pending" | "strong" | "moderate" | "late" | "ignored" | "superseded";
 type NudgeEscalation = "calm" | "firm" | "blunt" | "encouraging";
+type NudgeSendResult = "delivered" | "suppressed" | "failed";
 
 interface NudgeHistoryRecord {
   id: string;
@@ -157,11 +158,12 @@ export class NudgeCoordinator implements DurableObject {
     }
     if (request.method === "POST" && url.pathname === "/test") {
       const now = Date.now();
-      const delivered = await this.sendNudge("youtube", {
+      const result = await this.sendNudge("youtube", {
         startedAt: now - 15 * MINUTE_MS,
         lastSeenAt: now
       }, now);
-      return json({ ok: delivered, delivered }, delivered ? 200 : 503);
+      const delivered = result === "delivered";
+      return json({ ok: result !== "failed", delivered, suppressed: result === "suppressed" }, result === "failed" ? 503 : 200);
     }
     if (request.method === "GET" && url.pathname === "/sessions") {
       return json({ sessions: await this.mediaSessions() });
@@ -189,10 +191,12 @@ export class NudgeCoordinator implements DurableObject {
 
     if (due.length > 0) {
       const [sourceName, source] = due[0] as [MediaSource, ActiveSource];
-      const delivered = await this.sendNudge(sourceName, source, now);
-      if (delivered) {
+      const result = await this.sendNudge(sourceName, source, now);
+      if (result === "delivered") {
         source.lastNudgeAt = now;
         source.nextNudgeAt = randomFollowUpAt(now);
+      } else if (result === "suppressed") {
+        source.nextNudgeAt = now + MINUTE_MS;
       }
       sources[sourceName] = source;
       await this.state.storage.put(SOURCES_KEY, sources);
@@ -223,10 +227,12 @@ export class NudgeCoordinator implements DurableObject {
         // Claim the session before slow Sheets/AI/APNs work so simultaneous
         // heartbeats cannot each treat the same browser visit as a new session.
         await this.state.storage.put(SOURCES_KEY, sources);
-        const delivered = await this.sendNudge(body.source, sources[body.source]!, now);
-        if (delivered) {
+        const result = await this.sendNudge(body.source, sources[body.source]!, now);
+        if (result === "delivered") {
           sources[body.source]!.lastNudgeAt = now;
           sources[body.source]!.nextNudgeAt = randomFollowUpAt(now);
+        } else if (result === "suppressed") {
+          sources[body.source]!.nextNudgeAt = now + MINUTE_MS;
         }
       }
     } else {
@@ -361,8 +367,9 @@ export class NudgeCoordinator implements DurableObject {
   }
 
   private nextNudgeAt(source: ActiveSource, settings: NudgeSettings): number {
+    if (source.nextNudgeAt != null) return source.nextNudgeAt;
     return source.lastNudgeAt
-      ? source.nextNudgeAt ?? source.lastNudgeAt + settings.repeatIntervalMinutes * MINUTE_MS
+      ? source.lastNudgeAt + settings.repeatIntervalMinutes * MINUTE_MS
       : source.startedAt + settings.initialDelayMinutes * MINUTE_MS;
   }
 
@@ -384,14 +391,23 @@ export class NudgeCoordinator implements DurableObject {
     await this.state.storage.setAlarm(Math.max(desired, now + minimumDelay, now + 1_000));
   }
 
-  private async sendNudge(source: MediaSource, session: ActiveSource, now: number): Promise<boolean> {
+  private async sendNudge(source: MediaSource, session: ActiveSource, now: number): Promise<NudgeSendResult> {
+    const date = localDateKey(now, this.env.TIME_ZONE);
+    let snapshot: TrackerSnapshot | undefined;
+    try {
+      snapshot = await readSnapshot(this.env, date);
+      if (hasProductiveTaskInProgress(snapshot)) return "suppressed";
+    } catch {
+      // A temporary Sheets failure should not disable the existing nudge system.
+    }
+
     const minutes = Math.max(0, Math.round((now - session.startedAt) / MINUTE_MS));
     const sourceName = source === "youtube" ? "YouTube" : "X";
     const dailyUsage = await this.dailyUsageContext(session, now);
     const historyContext = await this.historyContext(now);
     const escalation = chooseEscalation(dailyUsage, minutes, historyContext);
     const generationContext = await this.preparePersonalizedAlerts(
-      sourceName, session, dailyUsage, minutes, now, historyContext, escalation
+      sourceName, session, dailyUsage, minutes, now, historyContext, escalation, snapshot
     );
     let personalizedIndex = session.personalizedAlertIndex ?? 0;
     while (session.personalizedAlerts?.[personalizedIndex]
@@ -443,7 +459,7 @@ export class NudgeCoordinator implements DurableObject {
         outcome: "pending"
       });
     }
-    return delivered;
+    return delivered ? "delivered" : "failed";
   }
 
   private async preparePersonalizedAlerts(
@@ -453,7 +469,8 @@ export class NudgeCoordinator implements DurableObject {
     sessionMinutes: number,
     now: number,
     historyContext: HistoryContext,
-    escalation: NudgeEscalation
+    escalation: NudgeEscalation,
+    currentSnapshot?: TrackerSnapshot
   ): Promise<NudgeGenerationContext | undefined> {
     if (session.personalizationAttempted) return session.personalizationContext;
     session.personalizationAttempted = true;
@@ -462,7 +479,7 @@ export class NudgeCoordinator implements DurableObject {
 
     try {
       const date = localDateKey(now, this.env.TIME_ZONE);
-      const snapshot = await readSnapshot(this.env, date);
+      const snapshot = currentSnapshot ?? await readSnapshot(this.env, date);
       const context = buildNudgeGenerationContext(
         sourceName,
         session,
@@ -710,6 +727,31 @@ function selectSuggestedTasks(snapshot: TrackerSnapshot): ScheduleItem[] {
   return [...unique.values()]
     .sort((a, b) => taskNudgeScore(b) - taskNudgeScore(a))
     .slice(0, 3);
+}
+
+export function hasProductiveTaskInProgress(snapshot: TrackerSnapshot): boolean {
+  const uniqueTasks = new Map<number, ScheduleItem>();
+  for (const task of [...snapshot.schedule, ...snapshot.openTasks]) {
+    uniqueTasks.set(task.rowNumber, task);
+  }
+  return [...uniqueTasks.values()].some(isProductiveTaskInProgress);
+}
+
+function isProductiveTaskInProgress(task: ScheduleItem): boolean {
+  if (task.status !== "in_progress" || !task.start || task.stop) return false;
+  return !isFreeTimeCategory(task.category);
+}
+
+function isFreeTimeCategory(category: string): boolean {
+  const normalized = category.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  return normalized === "x"
+    || normalized.includes("free time")
+    || normalized.includes("social media")
+    || normalized.includes("youtube")
+    || normalized.includes("twitter")
+    || normalized.includes("entertainment")
+    || normalized.includes("leisure")
+    || normalized === "break";
 }
 
 function taskNudgeScore(task: ScheduleItem): number {

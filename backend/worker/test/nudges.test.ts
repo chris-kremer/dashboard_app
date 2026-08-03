@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   followUpAlert,
+  hasProductiveTaskInProgress,
   initialAlert,
   parsePersonalizedAlerts,
   personalizedAlertsSchema,
@@ -8,8 +9,55 @@ import {
   randomFollowUpDelayMs,
   rewardAlert
 } from "../src/nudges";
+import type { ScheduleItem, TrackerSnapshot } from "../src/types";
+
+function task(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
+  return {
+    rowId: "schedule:2",
+    rowNumber: 2,
+    date: "2026-08-03",
+    task: "Write project brief",
+    category: "Work",
+    status: "in_progress",
+    start: "09:15",
+    ...overrides
+  };
+}
+
+function snapshot(tasks: ScheduleItem[]): TrackerSnapshot {
+  return {
+    serverTime: "2026-08-03T08:00:00.000Z",
+    date: "2026-08-03",
+    schedule: tasks,
+    openTasks: tasks,
+    caffeine: [],
+    caffeineOptions: [],
+    food: [],
+    sleep: null,
+    freeTime: []
+  };
+}
 
 describe("watch nudge variation", () => {
+  it("suppresses nudges while a productive task is actively running", () => {
+    expect(hasProductiveTaskInProgress(snapshot([task()]))).toBe(true);
+  });
+
+  it("does not treat completed or merely open tasks as actively running", () => {
+    expect(hasProductiveTaskInProgress(snapshot([
+      task({ rowNumber: 2, status: "done", stop: "09:45" }),
+      task({ rowNumber: 3, status: "open", start: undefined })
+    ]))).toBe(false);
+  });
+
+  it("does not let a free-time task suppress free-time nudges", () => {
+    expect(hasProductiveTaskInProgress(snapshot([
+      task({ rowNumber: 2, category: "Free Time" }),
+      task({ rowNumber: 3, category: "Social_Media" }),
+      task({ rowNumber: 4, category: "YouTube" })
+    ]))).toBe(false);
+  });
+
   it("randomizes follow-up delays from one to three minutes, averaging two", () => {
     expect(randomFollowUpDelayMs(() => 0)).toBe(60_000);
     expect(randomFollowUpDelayMs(() => 0.5)).toBe(120_000);

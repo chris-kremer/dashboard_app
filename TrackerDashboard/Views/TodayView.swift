@@ -301,7 +301,7 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Top To-Dos")
                 .font(.headline)
-            let tasks = Array(viewModel.sortedOpenTasks(in: sync.snapshot).prefix(5))
+            let tasks = Array(viewModel.sortedOpenTasks(in: sync.snapshot).prefix(10))
             if tasks.isEmpty {
                 EmptyStateView(title: "No open tasks", systemImage: "checkmark.circle")
             } else {

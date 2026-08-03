@@ -501,7 +501,7 @@ private struct TimelineEntry: Identifiable {
             case .freeTime:
                 return .red
             case .mediaFreeTime:
-                return .purple
+                return .red
             case .caffeine:
                 return .gray
             case let .schedule(priority):

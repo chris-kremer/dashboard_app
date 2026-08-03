@@ -12,8 +12,8 @@ struct TimelineView: View {
         } else if let sleep = sync.snapshot.sleep {
             result.append(contentsOf: TimelineEntry.sleep(sleep))
         }
-        let freeTimeEntries = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeEntries(on: sync.snapshot.date)
-        result.append(contentsOf: freeTimeEntries.compactMap(TimelineEntry.freeTime))
+        let freeTimeEntries = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeTimelineEntries(on: sync.snapshot.date)
+        result.append(contentsOf: TimelineEntry.freeTimeSessions(freeTimeEntries))
         result.append(contentsOf: sync.snapshot.caffeine.compactMap(TimelineEntry.caffeine))
         return result.sorted { $0.startMinute < $1.startMinute }
     }
@@ -46,7 +46,7 @@ struct TimelineView: View {
             }
             .task {
                 if mediaSync.snapshot.fetchedAt == .distantPast {
-                    await mediaSync.refresh()
+                    await mediaSync.refresh(date: sync.snapshot.date)
                 }
             }
         }
@@ -372,17 +372,26 @@ private struct TimelineEntry: Identifiable {
     }
 
     static func healthSleep(_ item: HealthSleepEntry) -> [TimelineEntry] {
-        item.intervals.flatMap { interval -> [TimelineEntry] in
-            let start = minutes(interval.startTime) ?? 0
-            let end = minutes(interval.endTime) ?? start + max(interval.durationMinutes, 30)
-            if end < start {
-                return [
-                    healthSleepEntry(interval, start: start, end: 24 * 60, suffix: "late"),
-                    healthSleepEntry(interval, start: 0, end: max(end, 30), suffix: "early")
-                ]
-            }
-            return [healthSleepEntry(interval, start: start, end: end, suffix: "main")]
+        guard let firstStart = item.intervals.map(\.start).min(),
+              let lastEnd = item.intervals.map(\.end).max(),
+              lastEnd > firstStart
+        else { return [] }
+
+        let session = HealthSleepInterval(
+            id: item.date,
+            start: firstStart,
+            end: lastEnd
+        )
+        let start = minutes(session.startTime) ?? 0
+        let end = minutes(session.endTime) ?? start + max(session.durationMinutes, 30)
+
+        if !Calendar.current.isDate(firstStart, inSameDayAs: lastEnd) || end < start {
+            return [
+                healthSleepEntry(session, start: start, end: 24 * 60, suffix: "late"),
+                healthSleepEntry(session, start: 0, end: max(end, 30), suffix: "early")
+            ]
         }
+        return [healthSleepEntry(session, start: start, end: end, suffix: "main")]
     }
 
     private static func healthSleepEntry(_ interval: HealthSleepInterval, start: Int, end: Int, suffix: String) -> TimelineEntry {
@@ -413,6 +422,39 @@ private struct TimelineEntry: Identifiable {
             kind: item.id.hasPrefix("media-") ? .mediaFreeTime : .freeTime,
             task: nil
         )
+    }
+
+    static func freeTimeSessions(_ items: [FreeTimeEntry]) -> [TimelineEntry] {
+        items
+            .compactMap(freeTime)
+            .sorted { ($0.startMinute, $0.endMinute) < ($1.startMinute, $1.endMinute) }
+            .reduce(into: [TimelineEntry]()) { sessions, entry in
+                guard let previous = sessions.last,
+                      entry.startMinute - previous.endMinute < 2
+                else {
+                    sessions.append(entry)
+                    return
+                }
+
+                sessions[sessions.count - 1] = TimelineEntry(
+                    id: "\(previous.id)+\(entry.id)",
+                    title: combinedFreeTimeTitle(previous.title, entry.title),
+                    subtitle: "Free time",
+                    startMinute: min(previous.startMinute, entry.startMinute),
+                    endMinute: max(previous.endMinute, entry.endMinute),
+                    priorityLevel: -1,
+                    kind: previous.kind.isMediaFreeTime || entry.kind.isMediaFreeTime ? .mediaFreeTime : .freeTime,
+                    task: nil
+                )
+            }
+    }
+
+    private static func combinedFreeTimeTitle(_ first: String, _ second: String) -> String {
+        var labels: [String] = []
+        for label in [first, second].flatMap({ $0.components(separatedBy: " + ") }) where !labels.contains(label) {
+            labels.append(label)
+        }
+        return labels.joined(separator: " + ")
     }
 
     static func caffeine(_ item: CaffeineEntry) -> TimelineEntry? {
@@ -446,6 +488,11 @@ private struct TimelineEntry: Identifiable {
         case mediaFreeTime
         case caffeine
         case schedule(priority: Int)
+
+        var isMediaFreeTime: Bool {
+            if case .mediaFreeTime = self { return true }
+            return false
+        }
 
         var color: Color {
             switch self {

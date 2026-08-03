@@ -4,3 +4,14 @@ xcuserdata/
 *.xcuserstate
 backend/worker/node_modules/
 .git.offloaded-broken-*
+
+# Local duplicate files created by Finder/Xcode conflict copies.
+**/* 2.swift
+**/* 2.entitlements
+**/* 2.json
+.gitignore 2
+
+# Local distribution and one-off installation artifacts.
+ExportOptions-*.plist
+tools/direct-install-worker.js
+TrackerDashboardWidgets/Assets.xcassets/app icon dashboard.imageset/

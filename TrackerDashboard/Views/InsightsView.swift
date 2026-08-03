@@ -69,7 +69,8 @@ struct InsightsView: View {
     }
 
     private var trackedFreeTimeMinutes: Int {
-        trackedFreeTimeEntries.reduce(0) { $0 + ($1.durationMinutes ?? 0) }
+        let sheetMinutes = (sync.snapshot.freeTime ?? []).reduce(0) { $0 + ($1.durationMinutes ?? 0) }
+        return sheetMinutes + mediaFreeTimeMinutes
     }
 
     private var mediaFreeTimeMinutes: Int {
@@ -78,6 +79,22 @@ struct InsightsView: View {
 
     private var todaysMediaEvents: [MediaEvent] {
         mediaSync.events(on: sync.snapshot.date)
+    }
+
+    private var selectedMediaSummary: MediaUsageSummary {
+        mediaSync.usageSummary(on: sync.snapshot.date)
+    }
+
+    private var recentMediaDays: [MediaDailyUsage] {
+        mediaSync.dailyUsage(endingOn: sync.snapshot.date)
+    }
+
+    private var recentMediaSessions: [CloudMediaSession] {
+        mediaSync.recentSessions(through: sync.snapshot.date)
+    }
+
+    private var selectedNudgeHistory: [NudgeHistoryEntry] {
+        mediaSync.nudgeHistory.filter { $0.date == sync.snapshot.date }
     }
 
     private var loggedCoverageDenominatorMinutes: Int {
@@ -200,6 +217,10 @@ struct InsightsView: View {
                     }
 
                     trackedFreeTimeCard
+
+                    if mediaSync.nudgeSummary != nil || !selectedNudgeHistory.isEmpty {
+                        nudgeEffectivenessCard
+                    }
                 }
                 .padding(.horizontal)
                 .padding(.top, 18)
@@ -254,7 +275,7 @@ struct InsightsView: View {
                     ProgressView()
                 } else {
                     Button {
-                        Task { await mediaSync.refresh() }
+                        Task { await mediaSync.refresh(date: sync.snapshot.date) }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
@@ -266,11 +287,31 @@ struct InsightsView: View {
             HStack(spacing: 12) {
                 metricPair(title: "Total", value: minutesLabel(trackedFreeTimeMinutes), tint: .purple)
                 Divider()
-                metricPair(title: "Media", value: minutesLabel(mediaFreeTimeMinutes), tint: .purple)
+                metricPair(
+                    title: "Media total",
+                    value: minutesLabel(mediaSync.snapshot.sessions == nil ? mediaFreeTimeMinutes : selectedMediaSummary.totalMinutes),
+                    tint: .purple
+                )
                 Divider()
-                metricPair(title: "Events", value: "\(todaysMediaEvents.count)", tint: .purple)
+                metricPair(
+                    title: "Sessions",
+                    value: "\(mediaSync.snapshot.sessions == nil ? todaysMediaEvents.count : selectedMediaSummary.sessionCount)",
+                    tint: .purple
+                )
             }
             .frame(height: 48)
+
+            if mediaSync.snapshot.sessions != nil {
+                Divider()
+                    .opacity(0.5)
+
+                mediaDailyStats
+                mediaRecentTrend
+
+                if !recentMediaSessions.isEmpty {
+                    mediaRecentActivity
+                }
+            }
 
             if trackedFreeTimeEntries.isEmpty {
                 Text("No tracked free-time entries for this date.")
@@ -310,9 +351,354 @@ struct InsightsView: View {
         .background(Color.purple.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .task {
             if mediaSync.snapshot.fetchedAt == .distantPast {
-                await mediaSync.refresh()
+                await mediaSync.refresh(date: sync.snapshot.date)
             }
         }
+    }
+
+    private var mediaDailyStats: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(isViewingToday ? "Today" : "Selected Day")
+                    .font(.subheadline.weight(.bold))
+                Spacer()
+                if selectedMediaSummary.longestSessionMinutes > 0 {
+                    Label(
+                        "Longest \(minutesLabel(selectedMediaSummary.longestSessionMinutes))",
+                        systemImage: "timer"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 10) {
+                mediaSourceMetric(
+                    title: "YouTube",
+                    minutes: selectedMediaSummary.youtubeMinutes,
+                    sessions: selectedMediaSummary.youtubeSessions,
+                    systemImage: "play.rectangle.fill",
+                    tint: .red
+                )
+                mediaSourceMetric(
+                    title: "X",
+                    minutes: selectedMediaSummary.xMinutes,
+                    sessions: selectedMediaSummary.xSessions,
+                    systemImage: "text.bubble.fill",
+                    tint: .blue
+                )
+            }
+        }
+    }
+
+    private var nudgeEffectivenessCard: some View {
+        let selected = selectedNudgeHistory
+        let evaluated = selected.filter { !["pending", "superseded"].contains($0.outcome) }
+        let helped = evaluated.filter { ["strong", "moderate"].contains($0.outcome) }.count
+        let fast = selected.filter { $0.outcome == "strong" }.count
+        let ignored = selected.filter { $0.outcome == "ignored" }.count
+        let successRate = evaluated.isEmpty ? 0 : Int((Double(helped) / Double(evaluated.count) * 100).rounded())
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Nudge Effectiveness", systemImage: "bell.and.waves.left.and.right.fill")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let best = mediaSync.nudgeSummary?.angles.first, best.successes + best.failures > 0 {
+                    Text("Best: \(nudgeAngleLabel(best.angle))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 12) {
+                metricPair(title: "Helped", value: "\(successRate)%", tint: .green)
+                Divider()
+                metricPair(title: "≤30 sec", value: "\(fast)", tint: .mint)
+                Divider()
+                metricPair(title: "Ignored", value: "\(ignored)", tint: .orange)
+            }
+            .frame(height: 48)
+
+            if selected.isEmpty {
+                Text("No nudges recorded for this date yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Divider().opacity(0.5)
+                Text("Recent Nudges")
+                    .font(.subheadline.weight(.bold))
+
+                ForEach(selected.prefix(6)) { nudge in
+                    nudgeHistoryRow(nudge)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func nudgeHistoryRow(_ nudge: NudgeHistoryEntry) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: nudgeOutcomeIcon(nudge.outcome))
+                .foregroundStyle(nudgeOutcomeColor(nudge.outcome))
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(nudge.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    Text(nudge.generator.uppercased())
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.12), in: Capsule())
+                }
+                Text(nudge.body)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(nudgeContextLine(nudge))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 4)
+
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(nudge.sentAt.formatted(date: .omitted, time: .shortened))
+                    .font(.caption2.monospacedDigit())
+                Text(nudgeOutcomeLabel(nudge))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(nudgeOutcomeColor(nudge.outcome))
+            }
+        }
+    }
+
+    private func nudgeContextLine(_ nudge: NudgeHistoryEntry) -> String {
+        var facts = [
+            nudge.source == .youtube ? "YouTube" : "X",
+            "\(nudge.dailyFreeTimeMinutes)m today",
+            nudgeAngleLabel(nudge.angle)
+        ]
+        if let awake = nudge.context.minutesSinceWake { facts.append("\(awake)m awake") }
+        if let task = nudge.context.suggestedTasks.first { facts.append("task: \(task)") }
+        return facts.joined(separator: " · ")
+    }
+
+    private func nudgeOutcomeLabel(_ nudge: NudgeHistoryEntry) -> String {
+        if let seconds = nudge.secondsToClose { return "closed \(seconds)s" }
+        return nudge.outcome.capitalized
+    }
+
+    private func nudgeOutcomeIcon(_ outcome: String) -> String {
+        switch outcome {
+        case "strong": "bolt.circle.fill"
+        case "moderate": "checkmark.circle.fill"
+        case "ignored": "exclamationmark.circle.fill"
+        case "late": "clock.fill"
+        default: "bell.fill"
+        }
+    }
+
+    private func nudgeOutcomeColor(_ outcome: String) -> Color {
+        switch outcome {
+        case "strong": .green
+        case "moderate": .mint
+        case "ignored": .orange
+        case "late": .yellow
+        default: .secondary
+        }
+    }
+
+    private func nudgeAngleLabel(_ angle: String) -> String {
+        switch angle {
+        case "daily_total": "Daily total"
+        case "morning": "Morning"
+        case "task": "Task"
+        case "content": "Content"
+        case "repeat": "Repeat use"
+        default: "General"
+        }
+    }
+
+    private var mediaRecentTrend: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Last 7 Days")
+                    .font(.subheadline.weight(.bold))
+                Spacer()
+                Text("\(minutesLabel(recentMediaAverageMinutes))/day avg")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(alignment: .bottom, spacing: 7) {
+                ForEach(recentMediaDays) { day in
+                    VStack(spacing: 5) {
+                        ZStack(alignment: .bottom) {
+                            Capsule()
+                                .fill(Color.secondary.opacity(0.10))
+                                .frame(height: 70)
+
+                            VStack(spacing: 0) {
+                                Rectangle()
+                                    .fill(Color.red.opacity(0.8))
+                                    .frame(height: mediaBarHeight(day.youtubeMinutes))
+                                Rectangle()
+                                    .fill(Color.blue.opacity(0.8))
+                                    .frame(height: mediaBarHeight(day.xMinutes))
+                            }
+                            .clipShape(Capsule())
+                        }
+                        Text(mediaDayLabel(day.date))
+                            .font(.caption2.weight(day.date == sync.snapshot.date ? .bold : .regular))
+                            .foregroundStyle(day.date == sync.snapshot.date ? Color.primary : Color.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(
+                        "\(mediaDayAccessibilityLabel(day.date)), YouTube \(day.youtubeMinutes) minutes, X \(day.xMinutes) minutes, unique total \(day.totalMinutes) minutes"
+                    )
+                }
+            }
+
+            HStack(spacing: 14) {
+                mediaLegend("YouTube", color: .red)
+                mediaLegend("X", color: .blue)
+                Spacer()
+                Text("\(minutesLabel(recentMediaTotalMinutes)) total")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var mediaRecentActivity: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("Recent Sessions")
+                .font(.subheadline.weight(.bold))
+
+            ForEach(recentMediaSessions) { session in
+                HStack(spacing: 10) {
+                    Image(systemName: session.source == .youtube ? "play.rectangle.fill" : "text.bubble.fill")
+                        .foregroundStyle(session.source == .youtube ? Color.red : Color.blue)
+                        .frame(width: 22)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(session.source == .youtube ? "YouTube" : "X")
+                                .font(.subheadline.weight(.semibold))
+                            if session.active {
+                                Text("LIVE")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color.green, in: Capsule())
+                            }
+                        }
+                        Text(mediaSessionDetail(session))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Text(minutesLabel(max(1, Int(ceil(Double(session.durationSeconds) / 60)))))
+                        .font(.subheadline.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.purple)
+                }
+            }
+        }
+    }
+
+    private func mediaSourceMetric(
+        title: String,
+        minutes: Int,
+        sessions: Int,
+        systemImage: String,
+        tint: Color
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(minutesLabel(minutes))
+                    .font(.title3.monospacedDigit().weight(.bold))
+                Text("\(title) · \(sessions) \(sessions == 1 ? "session" : "sessions")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func mediaLegend(_ label: String, color: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(label)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
+    private var recentMediaTotalMinutes: Int {
+        recentMediaDays.reduce(0) { $0 + $1.totalMinutes }
+    }
+
+    private var recentMediaAverageMinutes: Int {
+        guard !recentMediaDays.isEmpty else { return 0 }
+        return Int((Double(recentMediaTotalMinutes) / Double(recentMediaDays.count)).rounded())
+    }
+
+    private var recentMediaMaximumMinutes: Int {
+        max(recentMediaDays.map(\.totalMinutes).max() ?? 0, 1)
+    }
+
+    private func mediaBarHeight(_ minutes: Int) -> CGFloat {
+        guard minutes > 0 else { return 0 }
+        return max(3, CGFloat(minutes) / CGFloat(recentMediaMaximumMinutes) * 70)
+    }
+
+    private func mediaDayLabel(_ date: String) -> String {
+        guard let value = Date.trackerDateFormatter.date(from: date) else { return "-" }
+        return value.formatted(.dateTime.weekday(.narrow))
+    }
+
+    private func mediaDayAccessibilityLabel(_ date: String) -> String {
+        guard let value = Date.trackerDateFormatter.date(from: date) else { return date }
+        return value.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private func mediaSessionDetail(_ session: CloudMediaSession) -> String {
+        let day: String
+        if session.date == Date.trackerDateFormatter.string(from: Date()) {
+            day = "Today"
+        } else {
+            day = session.startedAt.formatted(.dateTime.weekday(.abbreviated).day())
+        }
+        let start = session.startedAt.formatted(date: .omitted, time: .shortened)
+        let end = session.active ? "now" : session.endedAt.formatted(date: .omitted, time: .shortened)
+        return "\(day), \(start)–\(end)"
+    }
+
+    private var isViewingToday: Bool {
+        sync.snapshot.date == Date.trackerDateFormatter.string(from: Date())
     }
 
     private func insightCard(title: String, value: String, detail: String, systemImage: String, tint: Color, showsDisclosure: Bool = false) -> some View {

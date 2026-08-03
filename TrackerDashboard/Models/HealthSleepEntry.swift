@@ -5,6 +5,7 @@ struct HealthSleepEntry: Codable, Equatable {
     var intervals: [HealthSleepInterval]
     var source: String
     var syncedAt: Date
+    var phases: [HealthSleepPhaseInterval]?
 
     var sleepHours: Double {
         Double(totalMinutes) / 60
@@ -21,6 +22,31 @@ struct HealthSleepEntry: Codable, Equatable {
     var actualWake: String? {
         intervals.sorted { $0.end < $1.end }.last?.endTime
     }
+}
+
+enum HealthSleepPhase: String, Codable, Equatable {
+    case inBed
+    case awake
+    case asleepUnspecified
+    case core
+    case deep
+    case rem
+
+    var isAsleep: Bool {
+        switch self {
+        case .asleepUnspecified, .core, .deep, .rem:
+            return true
+        case .inBed, .awake:
+            return false
+        }
+    }
+}
+
+struct HealthSleepPhaseInterval: Codable, Identifiable, Equatable {
+    var id: String
+    var phase: HealthSleepPhase
+    var start: Date
+    var end: Date
 }
 
 struct HealthSleepInterval: Codable, Identifiable, Equatable {

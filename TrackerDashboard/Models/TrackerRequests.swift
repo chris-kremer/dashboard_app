@@ -1,5 +1,25 @@
 import Foundation
 
+struct NudgeSettingsRequest: Codable {
+    let enabled: Bool
+    let initialDelayMinutes: Int
+    let repeatIntervalMinutes: Int
+}
+
+struct NudgeDeviceRequest: Codable {
+    let token: String
+    let environment: String
+}
+
+struct NudgeCommandRequest: Codable {
+    let command: String
+    let minutes: Int?
+}
+
+struct NudgeAPIResponse: Codable {
+    let ok: Bool
+}
+
 struct CreateTaskRequest: Codable, Equatable {
     var date: String
     var task: String

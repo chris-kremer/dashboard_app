@@ -1,7 +1,15 @@
 export interface Env {
   APP_API_TOKEN: string;
+  ADDON_API_TOKEN: string;
   GOOGLE_SERVICE_ACCOUNT_JSON: string;
   SPREADSHEET_ID: string;
+  NUDGE_COORDINATOR: DurableObjectNamespace;
+  AI?: Ai;
+  APNS_KEY_ID?: string;
+  APNS_TEAM_ID?: string;
+  APNS_PRIVATE_KEY?: string;
+  APNS_TOPIC?: string;
+  TIME_ZONE?: string;
   VERSION?: string;
 }
 

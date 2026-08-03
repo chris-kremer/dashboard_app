@@ -21,15 +21,21 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>KeychainAccessGroup</key>
 	<string>$(AppIdentifierPrefix)com.chriskremer.TrackerDashboard</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Tracker Dashboard reads sleep and workouts from HealthKit to show sleep totals and import workouts without overwriting manual entries.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Tracker Dashboard does not write Health data; Health access is used only to read sleep and workouts for your private dashboard.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

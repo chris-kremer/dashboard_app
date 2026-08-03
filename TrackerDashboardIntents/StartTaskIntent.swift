@@ -36,3 +36,7 @@ struct StartTaskIntent: AppIntent {
         return .result()
     }
 }
+
+#if os(iOS)
+extension StartTaskIntent: LiveActivityIntent {}
+#endif

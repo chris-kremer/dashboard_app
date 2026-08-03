@@ -126,12 +126,14 @@ struct TodayView: View {
                 currentActivitiesCard(current)
 
                 let next = viewModel.nextBlock(in: sync.snapshot, now: context.date)
-                compactStatusCard(
-                    title: "Next",
-                    systemImage: "arrow.forward.circle",
-                    value: next.map(nextActivityText) ?? "No upcoming block",
-                    detail: next?.category
-                )
+                if let next {
+                    compactStatusCard(
+                        title: "Next",
+                        systemImage: "arrow.forward.circle",
+                        value: nextActivityText(next),
+                        detail: next.category
+                    )
+                }
             }
         }
     }
@@ -299,7 +301,7 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Top To-Dos")
                 .font(.headline)
-            let tasks = Array(viewModel.sortedOpenTasks(in: sync.snapshot).prefix(5))
+            let tasks = Array(viewModel.sortedOpenTasks(in: sync.snapshot).prefix(10))
             if tasks.isEmpty {
                 EmptyStateView(title: "No open tasks", systemImage: "checkmark.circle")
             } else {

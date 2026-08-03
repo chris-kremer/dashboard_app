@@ -15,12 +15,23 @@ actor MediaAPIClient {
         try await send(path: "api/status", responseType: MediaStatus.self)
     }
 
-    func fetchEvents() async throws -> MediaEventsResponse {
-        try await send(path: "api/events", responseType: MediaEventsResponse.self)
+    func fetchEvents(date: String = Date.trackerDateFormatter.string(from: Date())) async throws -> MediaEventsResponse {
+        var components = URLComponents(
+            url: try mediaBaseURL().appendingPathComponent("api/events"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [URLQueryItem(name: "date", value: date)]
+        guard let url = components?.url else {
+            throw APIError.invalidURL
+        }
+        return try await send(url: url, responseType: MediaEventsResponse.self)
     }
 
     private func send<Response: Decodable>(path: String, responseType: Response.Type) async throws -> Response {
-        let url = try mediaBaseURL().appendingPathComponent(path)
+        try await send(url: try mediaBaseURL().appendingPathComponent(path), responseType: responseType)
+    }
+
+    private func send<Response: Decodable>(url: URL, responseType: Response.Type) async throws -> Response {
         var request = URLRequest(url: url)
         request.timeoutInterval = 8
         request.setValue("application/json", forHTTPHeaderField: "Accept")

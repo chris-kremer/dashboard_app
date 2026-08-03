@@ -28,3 +28,7 @@ struct StopTaskIntent: AppIntent {
         return .result()
     }
 }
+
+#if os(iOS)
+extension StopTaskIntent: LiveActivityIntent {}
+#endif

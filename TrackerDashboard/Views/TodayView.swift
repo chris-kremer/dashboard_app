@@ -126,12 +126,14 @@ struct TodayView: View {
                 currentActivitiesCard(current)
 
                 let next = viewModel.nextBlock(in: sync.snapshot, now: context.date)
-                compactStatusCard(
-                    title: "Next",
-                    systemImage: "arrow.forward.circle",
-                    value: next.map(nextActivityText) ?? "No upcoming block",
-                    detail: next?.category
-                )
+                if let next {
+                    compactStatusCard(
+                        title: "Next",
+                        systemImage: "arrow.forward.circle",
+                        value: nextActivityText(next),
+                        detail: next.category
+                    )
+                }
             }
         }
     }

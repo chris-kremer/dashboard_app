@@ -188,10 +188,10 @@ actor TaskLiveActivityCoordinator {
             if suggestions.isEmpty {
                 await activity.end(content, dismissalPolicy: .immediate)
             } else {
-                await activity.end(
-                    content,
-                    dismissalPolicy: .after(Date().addingTimeInterval(15 * 60))
-                )
+                // Keep the activity alive while it offers the next tasks. An ended
+                // activity is frozen, so starting a suggestion would otherwise have
+                // to create a new activity before the Lock Screen can update.
+                await activity.update(content)
             }
         }
     }

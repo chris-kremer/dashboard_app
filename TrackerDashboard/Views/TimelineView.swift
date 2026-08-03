@@ -13,7 +13,7 @@ struct TimelineView: View {
             result.append(contentsOf: TimelineEntry.sleep(sleep))
         }
         let freeTimeEntries = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeTimelineEntries(on: sync.snapshot.date)
-        result.append(contentsOf: freeTimeEntries.compactMap(TimelineEntry.freeTime))
+        result.append(contentsOf: TimelineEntry.freeTimeSessions(freeTimeEntries))
         result.append(contentsOf: sync.snapshot.caffeine.compactMap(TimelineEntry.caffeine))
         return result.sorted { $0.startMinute < $1.startMinute }
     }
@@ -424,6 +424,39 @@ private struct TimelineEntry: Identifiable {
         )
     }
 
+    static func freeTimeSessions(_ items: [FreeTimeEntry]) -> [TimelineEntry] {
+        items
+            .compactMap(freeTime)
+            .sorted { ($0.startMinute, $0.endMinute) < ($1.startMinute, $1.endMinute) }
+            .reduce(into: [TimelineEntry]()) { sessions, entry in
+                guard let previous = sessions.last,
+                      entry.startMinute - previous.endMinute < 2
+                else {
+                    sessions.append(entry)
+                    return
+                }
+
+                sessions[sessions.count - 1] = TimelineEntry(
+                    id: "\(previous.id)+\(entry.id)",
+                    title: combinedFreeTimeTitle(previous.title, entry.title),
+                    subtitle: "Free time",
+                    startMinute: min(previous.startMinute, entry.startMinute),
+                    endMinute: max(previous.endMinute, entry.endMinute),
+                    priorityLevel: -1,
+                    kind: previous.kind.isMediaFreeTime || entry.kind.isMediaFreeTime ? .mediaFreeTime : .freeTime,
+                    task: nil
+                )
+            }
+    }
+
+    private static func combinedFreeTimeTitle(_ first: String, _ second: String) -> String {
+        var labels: [String] = []
+        for label in [first, second].flatMap({ $0.components(separatedBy: " + ") }) where !labels.contains(label) {
+            labels.append(label)
+        }
+        return labels.joined(separator: " + ")
+    }
+
     static func caffeine(_ item: CaffeineEntry) -> TimelineEntry? {
         guard let start = minutes(item.time) else { return nil }
         return TimelineEntry(
@@ -455,6 +488,11 @@ private struct TimelineEntry: Identifiable {
         case mediaFreeTime
         case caffeine
         case schedule(priority: Int)
+
+        var isMediaFreeTime: Bool {
+            if case .mediaFreeTime = self { return true }
+            return false
+        }
 
         var color: Color {
             switch self {

@@ -20,6 +20,7 @@ interface ActiveSource {
   contentTitle?: string;
   contentAuthor?: string;
   contentURL?: string;
+  contentObservedAt?: number;
   personalizedAlerts?: NudgeAlert[];
   personalizedAlertIndex?: number;
   personalizationAttempted?: boolean;
@@ -53,7 +54,7 @@ interface HistoryContext {
   preferredAngles: NudgeAngle[];
 }
 
-interface NudgeAlert {
+export interface NudgeAlert {
   title: string;
   body: string;
   angle: NudgeAngle;
@@ -89,7 +90,7 @@ interface NudgeHistoryRecord {
   secondsToClose?: number;
 }
 
-interface NudgeGenerationContext {
+export interface NudgeGenerationContext {
   sourceName: "YouTube" | "X";
   localTime: string;
   previousSessionCount: number;
@@ -100,6 +101,7 @@ interface NudgeGenerationContext {
   actualWake?: string;
   minutesSinceWake?: number;
   completedTaskCount: number;
+  productiveMinutesToday?: number;
   suggestedTasks: Array<{
     name: string;
     estimateMinutes?: number;
@@ -135,6 +137,7 @@ const NUDGE_INITIAL_DELAY_MINUTES = 0;
 const NUDGE_REPEAT_INTERVAL_MINUTES = 2;
 const MIN_FOLLOW_UP_DELAY_MS = 60_000;
 const FOLLOW_UP_DELAY_RANGE_MS = 120_000;
+const CONTENT_CONTEXT_TTL_MS = 45_000;
 const DEFAULT_SETTINGS: NudgeSettings = {
   enabled: true,
   initialDelayMinutes: NUDGE_INITIAL_DELAY_MINUTES,
@@ -225,12 +228,44 @@ export class NudgeCoordinator implements DurableObject {
     const settings = await this.settings();
     if (body.active) {
       const existing = sources[body.source];
-      const contentTitle = cleanContextValue(body.title, 180) || existing?.contentTitle;
-      const contentAuthor = cleanContextValue(body.author ?? body.channel, 80) || existing?.contentAuthor;
-      const contentURL = cleanContextValue(body.url, 500) || existing?.contentURL;
+      const incomingTitle = cleanContextValue(body.title, 180);
+      const incomingAuthor = cleanContextValue(body.author ?? body.channel, 80);
+      const incomingURL = cleanContextValue(body.url, 500);
+      const hasContentObservation = Boolean(incomingTitle || incomingAuthor || incomingURL);
+      const previousIdentity = existing
+        ? contentIdentity(body.source, existing.contentURL, existing.contentTitle, existing.contentAuthor)
+        : undefined;
+      const incomingIdentity = hasContentObservation
+        ? contentIdentity(body.source, incomingURL, incomingTitle, incomingAuthor)
+        : undefined;
+      const contentChanged = Boolean(existing && incomingIdentity && incomingIdentity !== previousIdentity);
+      const contentTitle = incomingTitle || (contentChanged ? undefined : existing?.contentTitle);
+      const contentAuthor = incomingAuthor || (contentChanged ? undefined : existing?.contentAuthor);
+      const contentURL = incomingURL || (contentChanged ? undefined : existing?.contentURL);
       sources[body.source] = existing
-        ? { ...existing, lastSeenAt: now, inactiveSince: undefined, contentTitle, contentAuthor, contentURL }
-        : { startedAt: now, lastSeenAt: now, contentTitle, contentAuthor, contentURL };
+        ? {
+            ...existing,
+            lastSeenAt: now,
+            inactiveSince: undefined,
+            contentTitle,
+            contentAuthor,
+            contentURL,
+            contentObservedAt: hasContentObservation ? now : existing.contentObservedAt,
+            ...(contentChanged ? {
+              personalizedAlerts: undefined,
+              personalizedAlertIndex: undefined,
+              personalizationAttempted: false,
+              personalizationContext: undefined
+            } : {})
+          }
+        : {
+            startedAt: now,
+            lastSeenAt: now,
+            contentTitle,
+            contentAuthor,
+            contentURL,
+            contentObservedAt: hasContentObservation ? now : undefined
+          };
 
       if (!existing && settings.enabled) {
         // Claim the session before slow Sheets/AI/APNs work so simultaneous
@@ -498,8 +533,8 @@ export class NudgeCoordinator implements DurableObject {
         angle: alert.angle ?? "generic",
         escalation,
         context: {
-          contentTitle: session.contentTitle,
-          contentAuthor: session.contentAuthor,
+          contentTitle: generationContext?.contentTitle,
+          contentAuthor: generationContext?.contentAuthor,
           actualWake: generationContext?.actualWake,
           minutesSinceWake: generationContext?.minutesSinceWake,
           completedTaskCount: generationContext?.completedTaskCount ?? 0,
@@ -559,7 +594,7 @@ export class NudgeCoordinator implements DurableObject {
         temperature: 0.9,
         max_tokens: 700
       });
-      const alerts = parsePersonalizedAlerts(result);
+      const alerts = validatePersonalizedAlerts(parsePersonalizedAlerts(result), context);
       if (alerts.length >= 3) {
         session.personalizedAlerts = alerts;
         session.personalizedAlertIndex = 0;
@@ -731,17 +766,19 @@ function buildNudgeGenerationContext(
 ): NudgeGenerationContext {
   const actualWake = snapshot.sleep?.actualWake;
   const minutesSinceWake = minutesSinceTime(actualWake, now, timeZone);
+  const currentContent = freshContentContext(session, now);
   return {
     sourceName,
     localTime: localTimeLabel(now, timeZone),
     previousSessionCount: dailyUsage.previousSessionCount,
     dailyFreeTimeMinutes: dailyUsage.totalMinutes,
     sessionMinutes,
-    contentTitle: session.contentTitle,
-    contentAuthor: session.contentAuthor,
+    contentTitle: currentContent?.title,
+    contentAuthor: currentContent?.author,
     actualWake,
     minutesSinceWake,
     completedTaskCount: snapshot.schedule.filter(item => item.status === "done").length,
+    productiveMinutesToday: productiveMinutesToday(snapshot, now, timeZone),
     suggestedTasks: selectSuggestedTasks(snapshot).map(item => ({
       name: cleanContextValue(item.task, 120)!,
       estimateMinutes: item.estimateMinutes,
@@ -807,6 +844,60 @@ function isFreeTimeCategory(category: string): boolean {
     || normalized === "break";
 }
 
+export function productiveMinutesToday(
+  snapshot: TrackerSnapshot,
+  now: number,
+  timeZone = "Europe/Berlin"
+): number | undefined {
+  const currentMinute = localMinuteOfDay(now, timeZone);
+  const intervals = snapshot.schedule.flatMap(task => {
+    if (isFreeTimeCategory(task.category) || !task.start) return [];
+    if (task.status !== "done" && task.status !== "logged" && task.status !== "in_progress") return [];
+    const start = clockMinute(task.start);
+    const end = task.stop
+      ? clockMinute(task.stop)
+      : task.status === "in_progress" ? currentMinute : undefined;
+    if (start == null || end == null || end <= start) return [];
+    return [{ start, end: Math.min(end, 24 * 60) }];
+  }).sort((a, b) => a.start - b.start || a.end - b.end);
+  if (intervals.length === 0) return undefined;
+
+  let total = 0;
+  let rangeStart = intervals[0]!.start;
+  let rangeEnd = intervals[0]!.end;
+  for (const interval of intervals.slice(1)) {
+    if (interval.start <= rangeEnd) {
+      rangeEnd = Math.max(rangeEnd, interval.end);
+    } else {
+      total += rangeEnd - rangeStart;
+      rangeStart = interval.start;
+      rangeEnd = interval.end;
+    }
+  }
+  return total + rangeEnd - rangeStart;
+}
+
+function clockMinute(value: string | undefined): number | undefined {
+  if (!value || !/^\d{2}:\d{2}$/.test(value)) return undefined;
+  const [hours, minutes] = value.split(":").map(Number);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours! < 0 || hours! > 23 || minutes! < 0 || minutes! > 59) {
+    return undefined;
+  }
+  return hours! * 60 + minutes!;
+}
+
+function localMinuteOfDay(timestamp: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date(timestamp));
+  const hours = Number(parts.find(part => part.type === "hour")?.value ?? 0);
+  const minutes = Number(parts.find(part => part.type === "minute")?.value ?? 0);
+  return hours * 60 + minutes;
+}
+
 function taskNudgeScore(task: ScheduleItem): number {
   const priority = task.adjustedPriority ?? task.priority ?? 0;
   const estimate = task.estimateMinutes;
@@ -827,6 +918,8 @@ export function personalizedNudgeSystemPrompt(): string {
     "Match the requested escalation: calm is direct but restrained, firm is pointed, blunt is sharper without abuse, encouraging acknowledges prior successful closes.",
     "Use preferredAngles more often because they have worked before, while keeping the six messages diverse.",
     "Use only facts present in the context. Never invent a task, wake time, duration, author, topic, or completed activity.",
+    "productiveMinutesToday is the exact de-duplicated duration from today's logged productive task intervals. Mention productive time only when this field is present, copy the exact integer, and phrase it as 'N minutes productive today'. Never convert it to hours or estimate it.",
+    "contentTitle and contentAuthor are included only when observed in a recent heartbeat for the current video or post. Reference content only when at least one of those fields is present.",
     "A task's estimateMinutes is estimated effort, never time remaining, a deadline, an allowance, or a countdown.",
     "Never say that any number of minutes are 'left' or 'remaining'. If mentioning an estimate, call it an estimated N-minute task.",
     "If a field is absent, do not imply it. Do not mention the data collection system or AI.",
@@ -888,6 +981,34 @@ export function parsePersonalizedAlerts(result: unknown): NudgeAlert[] {
     .slice(0, 6);
 }
 
+export function validatePersonalizedAlerts(
+  alerts: NudgeAlert[],
+  context: NudgeGenerationContext
+): NudgeAlert[] {
+  return alerts.filter(alert => {
+    const text = `${alert.title} ${alert.body}`;
+    if (alert.angle === "content" && !context.contentTitle && !context.contentAuthor) return false;
+    const claimedMinutes = claimedProductiveMinutes(text);
+    if (claimedMinutes == null) return true;
+    return context.productiveMinutesToday != null && claimedMinutes === context.productiveMinutesToday;
+  });
+}
+
+function claimedProductiveMinutes(value: string): number | undefined {
+  const durationThenProductive = value.match(
+    /\b(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?)\b.{0,45}\b(productive|worked|working|focused|focus)\b/i
+  );
+  const productiveThenDuration = value.match(
+    /\b(productive|worked|working|focused|focus)\b.{0,45}\b(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?)\b/i
+  );
+  const match = durationThenProductive ?? productiveThenDuration;
+  if (!match) return undefined;
+  const amount = Number(durationThenProductive ? match[1] : match[2]);
+  const unit = String(durationThenProductive ? match[2] : match[3]).toLowerCase();
+  if (!Number.isFinite(amount)) return undefined;
+  return Math.round(unit.startsWith("h") ? amount * 60 : amount);
+}
+
 function isNudgeAngle(value: unknown): value is NudgeAngle {
   return value === "morning" || value === "task" || value === "daily_total"
     || value === "content" || value === "repeat" || value === "generic";
@@ -916,6 +1037,41 @@ function cleanAlertValue(value: unknown, maximumLength: number): string | undefi
 function cleanContextValue(value: unknown, maximumLength: number): string | undefined {
   const cleaned = typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim() : "";
   return cleaned ? cleaned.slice(0, maximumLength) : undefined;
+}
+
+function freshContentContext(
+  session: ActiveSource,
+  now: number
+): { title?: string; author?: string } | undefined {
+  if (session.contentObservedAt == null || now - session.contentObservedAt > CONTENT_CONTEXT_TTL_MS) return undefined;
+  if (!session.contentTitle && !session.contentAuthor) return undefined;
+  return { title: session.contentTitle, author: session.contentAuthor };
+}
+
+export function contentIdentity(
+  source: MediaSource,
+  rawURL?: string,
+  title?: string,
+  author?: string
+): string | undefined {
+  if (rawURL) {
+    try {
+      const url = new URL(rawURL);
+      if (source === "youtube") {
+        const videoID = url.searchParams.get("v")
+          || url.pathname.match(/^\/(?:shorts|live)\/([^/?#]+)/)?.[1];
+        if (videoID) return `youtube:${videoID}`;
+      } else {
+        const statusID = url.pathname.match(/\/status\/(\d+)/)?.[1];
+        if (statusID) return `x:${statusID}`;
+      }
+      return `${source}:${url.origin}${url.pathname}`;
+    } catch {
+      // Fall through to a bounded text identity.
+    }
+  }
+  const textIdentity = [title, author].filter(Boolean).join("|").trim().toLowerCase();
+  return textIdentity ? `${source}:text:${textIdentity}` : undefined;
 }
 
 function localTimeLabel(timestamp: number, timeZone = "Europe/Berlin"): string {

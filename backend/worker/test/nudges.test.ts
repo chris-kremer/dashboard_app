@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  contentIdentity,
   followUpAlert,
   hasProductiveTaskInProgress,
   initialAlert,
   parsePersonalizedAlerts,
   personalizedAlertsSchema,
   personalizedNudgeSystemPrompt,
+  productiveMinutesToday,
   randomFollowUpDelayMs,
-  rewardAlert
+  rewardAlert,
+  validatePersonalizedAlerts
 } from "../src/nudges";
+import type { NudgeGenerationContext } from "../src/nudges";
 import type { ScheduleItem, TrackerSnapshot } from "../src/types";
 
 function task(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
@@ -120,6 +124,7 @@ describe("watch nudge variation", () => {
     expect(parsePersonalizedAlerts({ response: "not json" })).toEqual([]);
     expect(personalizedNudgeSystemPrompt()).toContain("Never invent");
     expect(personalizedNudgeSystemPrompt()).toContain("never time remaining");
+    expect(personalizedNudgeSystemPrompt()).toContain("productiveMinutesToday");
     expect(personalizedAlertsSchema()).toMatchObject({ type: "object", additionalProperties: false });
   });
 
@@ -137,6 +142,63 @@ describe("watch nudge variation", () => {
     expect(alerts).toEqual([
       { title: "Start small", body: "Close X and start the estimated 15-minute task.", angle: "generic" }
     ]);
+  });
+
+  it("de-duplicates overlapping logged productive intervals", () => {
+    const current = Date.parse("2026-08-03T10:00:00.000Z"); // 12:00 in Berlin
+    const data = snapshot([
+      task({ rowNumber: 2, status: "done", start: "09:00", stop: "10:00" }),
+      task({ rowNumber: 3, status: "done", start: "09:30", stop: "11:00" }),
+      task({ rowNumber: 4, status: "in_progress", start: "11:30", stop: undefined }),
+      task({ rowNumber: 5, category: "Free Time", status: "done", start: "08:00", stop: "09:00" })
+    ]);
+
+    expect(productiveMinutesToday(data, current, "Europe/Berlin")).toBe(150);
+  });
+
+  it("rejects unsupported productive-time and content claims", () => {
+    const context: NudgeGenerationContext = {
+      sourceName: "YouTube",
+      localTime: "12:00",
+      previousSessionCount: 1,
+      dailyFreeTimeMinutes: 12,
+      sessionMinutes: 2,
+      contentTitle: "Current video",
+      contentAuthor: "Current channel",
+      completedTaskCount: 2,
+      productiveMinutesToday: 95,
+      suggestedTasks: [],
+      morningMode: false,
+      escalation: "firm",
+      successfulClosuresToday: 0,
+      ignoredNudgesToday: 0,
+      preferredAngles: []
+    };
+    const wrongDuration = {
+      title: "Good start",
+      body: "You've been productive for 2 hours today. Close YouTube.",
+      angle: "generic" as const
+    };
+    const exactDuration = {
+      title: "Good start",
+      body: "You have 95 minutes productive today. Close YouTube.",
+      angle: "generic" as const
+    };
+    const contentAlert = { title: "Current video", body: "Close it.", angle: "content" as const };
+
+    expect(validatePersonalizedAlerts([wrongDuration, exactDuration, contentAlert], context)).toEqual([
+      exactDuration,
+      contentAlert
+    ]);
+    expect(validatePersonalizedAlerts(
+      [contentAlert],
+      { ...context, contentTitle: undefined, contentAuthor: undefined }
+    )).toEqual([]);
+  });
+
+  it("uses stable video and post IDs to detect content changes", () => {
+    expect(contentIdentity("youtube", "https://www.youtube.com/watch?v=abc123&t=30")).toBe("youtube:abc123");
+    expect(contentIdentity("x", "https://x.com/example/status/123456789?s=20")).toBe("x:123456789");
   });
 
   it("selects different positive reinforcement messages", () => {

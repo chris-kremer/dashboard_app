@@ -60,8 +60,22 @@ struct InsightsView: View {
         return min(Double(actualMinutes) / Double(adjustedWorkloadMinutes), 1)
     }
 
+    private var coverageAnalyzer: CoverageGapAnalyzer {
+        CoverageGapAnalyzer(
+            date: sync.snapshot.date,
+            schedule: sync.snapshot.schedule,
+            freeTime: trackedFreeTimeEntries,
+            healthSleep: sync.healthSleep,
+            manualSleep: sync.snapshot.sleep
+        )
+    }
+
     private var loggedMinutes: Int {
-        mergedLoggedIntervals.reduce(0) { $0 + max(0, min($1.end, loggedCoverageDenominatorMinutes) - $1.start) }
+        coverageAnalyzer.loggedMinutes
+    }
+
+    private var coverageGaps: [CoverageGap] {
+        coverageAnalyzer.gaps
     }
 
     private var trackedFreeTimeEntries: [FreeTimeEntry] {
@@ -98,10 +112,7 @@ struct InsightsView: View {
     }
 
     private var loggedCoverageDenominatorMinutes: Int {
-        if sync.snapshot.date == Date.trackerDateFormatter.string(from: Date()) {
-            return max(minutes(Date.trackerTimeFormatter.string(from: Date())) ?? 1, 1)
-        }
-        return 24 * 60
+        coverageAnalyzer.coverageEndMinute
     }
 
     private var loggedCoverageShare: Double {
@@ -172,38 +183,51 @@ struct InsightsView: View {
                         .buttonStyle(.plain)
                     }
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Label("Logged Coverage", systemImage: "record.circle.fill")
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text("\(loggedCoveragePercent)%")
-                                .font(.title3.monospacedDigit().weight(.bold))
-                                .foregroundStyle(loggedCoverageColor)
-                        }
-
-                        GeometryReader { proxy in
-                            ZStack(alignment: .leading) {
-                                Capsule()
-                                    .fill(Color.secondary.opacity(0.14))
-                                Capsule()
-                                    .fill(loggedCoverageColor)
-                                    .frame(width: proxy.size.width * loggedCoverageShare)
+                    NavigationLink {
+                        CoverageGapsDetailView(date: sync.snapshot.date)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Label("Logged Coverage", systemImage: "record.circle.fill")
+                                    .font(.headline)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(loggedCoveragePercent)%")
+                                    .font(.title3.monospacedDigit().weight(.bold))
+                                    .foregroundStyle(loggedCoverageColor)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.secondary)
                             }
-                        }
-                        .frame(height: 12)
 
-                        HStack {
-                            Text("\(minutesLabel(loggedMinutes)) logged")
-                            Spacer()
-                            Text("\(minutesLabel(max(loggedCoverageDenominatorMinutes - loggedMinutes, 0))) unlogged so far")
+                            GeometryReader { proxy in
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(Color.secondary.opacity(0.14))
+                                    Capsule()
+                                        .fill(loggedCoverageColor)
+                                        .frame(width: proxy.size.width * loggedCoverageShare)
+                                }
+                            }
+                            .frame(height: 12)
+
+                            HStack {
+                                Text("\(minutesLabel(loggedMinutes)) logged")
+                                Spacer()
+                                Text("\(minutesLabel(max(loggedCoverageDenominatorMinutes - loggedMinutes, 0))) unlogged so far")
+                            }
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                            Text("\(coverageGaps.count) \(coverageGaps.count == 1 ? "gap" : "gaps") over 5 minutes to review")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .padding(16)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
-                    .padding(16)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows unlogged gaps and lets you fill them with activities")
 
                     sectionTitle("Logged Today")
                     HStack(spacing: 10) {
@@ -973,6 +997,209 @@ private struct LoggedInterval {
     let end: Int
 }
 
+private struct CoverageInterval {
+    let start: Int
+    let end: Int
+    let title: String
+}
+
+private struct CoverageGap: Identifiable, Hashable {
+    let date: String
+    let start: Int
+    let end: Int
+    let previousTitle: String?
+    let nextTitle: String?
+
+    var id: String { "\(date):\(start):\(end)" }
+    var durationMinutes: Int { max(0, end - start) }
+    var startLabel: String { Self.timeLabel(start) }
+    var endLabel: String { Self.timeLabel(end) }
+
+    var question: String {
+        "What did you do between \(startLabel) and \(endLabel)?"
+    }
+
+    var surroundingContext: String {
+        switch (previousTitle, nextTitle) {
+        case let (previous?, next?):
+            return "This was after finishing \(previous) and before beginning \(next)."
+        case let (previous?, nil):
+            return "This was after finishing \(previous)."
+        case let (nil, next?):
+            return "This was before beginning \(next)."
+        case (nil, nil):
+            return "There is no surrounding logged activity."
+        }
+    }
+
+    private static func timeLabel(_ minute: Int) -> String {
+        let bounded = min(max(minute, 0), 24 * 60)
+        return String(format: "%02d:%02d", bounded / 60, bounded % 60)
+    }
+}
+
+private struct CoverageGapAnalyzer {
+    let date: String
+    let schedule: [ScheduleItem]
+    let freeTime: [FreeTimeEntry]
+    let healthSleep: HealthSleepEntry?
+    let manualSleep: SleepEntry?
+    var now = Date()
+
+    var coverageEndMinute: Int {
+        if date == Date.trackerDateFormatter.string(from: now) {
+            return max(Self.minute(Date.trackerTimeFormatter.string(from: now)) ?? 1, 1)
+        }
+        return 24 * 60
+    }
+
+    var loggedMinutes: Int {
+        mergedIntervals.reduce(0) { $0 + max(0, $1.end - $1.start) }
+    }
+
+    var gaps: [CoverageGap] {
+        let intervals = coverageIntervals
+            .filter { $0.end > 0 && $0.start < coverageEndMinute }
+            .map {
+                CoverageInterval(
+                    start: max(0, $0.start),
+                    end: min(coverageEndMinute, $0.end),
+                    title: $0.title
+                )
+            }
+            .filter { $0.end > $0.start }
+            .sorted { ($0.start, $0.end) < ($1.start, $1.end) }
+
+        var result: [CoverageGap] = []
+        var cursor = 0
+        var previousTitle: String?
+
+        for interval in intervals {
+            if interval.end <= cursor { continue }
+            if interval.start > cursor {
+                if interval.start - cursor > 5 {
+                    result.append(CoverageGap(
+                        date: date,
+                        start: cursor,
+                        end: interval.start,
+                        previousTitle: previousTitle,
+                        nextTitle: interval.title
+                    ))
+                }
+                cursor = interval.start
+            }
+            if interval.end > cursor {
+                cursor = interval.end
+                previousTitle = interval.title
+            }
+            if cursor >= coverageEndMinute { break }
+        }
+
+        if coverageEndMinute - cursor > 5 {
+            result.append(CoverageGap(
+                date: date,
+                start: cursor,
+                end: coverageEndMinute,
+                previousTitle: previousTitle,
+                nextTitle: nil
+            ))
+        }
+        return result
+    }
+
+    private var mergedIntervals: [CoverageInterval] {
+        coverageIntervals
+            .map {
+                CoverageInterval(
+                    start: max(0, min($0.start, coverageEndMinute)),
+                    end: max(0, min($0.end, coverageEndMinute)),
+                    title: $0.title
+                )
+            }
+            .filter { $0.end > $0.start }
+            .sorted { ($0.start, $0.end) < ($1.start, $1.end) }
+            .reduce(into: [CoverageInterval]()) { merged, interval in
+                if let last = merged.last, interval.start <= last.end {
+                    let title = interval.end > last.end ? interval.title : last.title
+                    merged[merged.count - 1] = CoverageInterval(
+                        start: last.start,
+                        end: max(last.end, interval.end),
+                        title: title
+                    )
+                } else {
+                    merged.append(interval)
+                }
+            }
+    }
+
+    private var coverageIntervals: [CoverageInterval] {
+        var intervals = schedule.flatMap(scheduleIntervals)
+        intervals.append(contentsOf: freeTime.flatMap(freeTimeIntervals))
+        if let healthSleep {
+            intervals.append(contentsOf: healthSleep.intervals.flatMap {
+                splitInterval(start: $0.startTime, end: $0.endTime, title: "Sleep")
+            })
+        } else if let manualSleep {
+            let end = manualSleep.actualWake ?? manualSleep.plannedWake ?? manualSleep.alarmTime
+            intervals.append(contentsOf: splitInterval(
+                start: manualSleep.sleepStart ?? "00:00",
+                end: end,
+                title: "Sleep"
+            ))
+        }
+        return intervals
+    }
+
+    private func scheduleIntervals(_ item: ScheduleItem) -> [CoverageInterval] {
+        guard let start = Self.minute(item.start) else { return [] }
+        let end = Self.minute(item.stop) ?? runningEnd(for: item)
+        guard let end else { return [] }
+        if end < start, item.stop != nil {
+            return [
+                CoverageInterval(start: start, end: 24 * 60, title: item.task),
+                CoverageInterval(start: 0, end: max(1, end), title: item.task)
+            ]
+        }
+        return [CoverageInterval(start: start, end: max(start + 1, end), title: item.task)]
+    }
+
+    private func freeTimeIntervals(_ item: FreeTimeEntry) -> [CoverageInterval] {
+        guard let start = Self.minute(item.start ?? item.time) else { return [] }
+        let fallbackEnd = start + max(item.durationMinutes ?? 30, 15)
+        let end = Self.minute(item.end) ?? fallbackEnd
+        if end < start, item.end != nil {
+            return [
+                CoverageInterval(start: start, end: 24 * 60, title: item.label),
+                CoverageInterval(start: 0, end: max(1, end), title: item.label)
+            ]
+        }
+        return [CoverageInterval(start: start, end: max(start + 1, end), title: item.label)]
+    }
+
+    private func runningEnd(for item: ScheduleItem) -> Int? {
+        guard item.date == Date.trackerDateFormatter.string(from: now) else { return nil }
+        return Self.minute(Date.trackerTimeFormatter.string(from: now))
+    }
+
+    private func splitInterval(start: String?, end: String?, title: String) -> [CoverageInterval] {
+        guard let start = Self.minute(start), let end = Self.minute(end) else { return [] }
+        if end >= start {
+            return [CoverageInterval(start: start, end: max(start + 1, end), title: title)]
+        }
+        return [
+            CoverageInterval(start: start, end: 24 * 60, title: title),
+            CoverageInterval(start: 0, end: max(1, end), title: title)
+        ]
+    }
+
+    private static func minute(_ value: String?) -> Int? {
+        guard let value else { return nil }
+        let parts = value.split(separator: ":").compactMap { Int(String($0)) }
+        guard parts.count >= 2 else { return nil }
+        return min(max(parts[0] * 60 + parts[1], 0), 24 * 60)
+    }
+}
+
 private struct WorkloadGauge: View {
     let fraction: Double
     let color: Color
@@ -1021,6 +1248,209 @@ private struct ArcGaugeShape: Shape {
         var path = Path()
         path.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
         return path
+    }
+}
+
+private struct CoverageGapsDetailView: View {
+    @Environment(SyncController.self) private var sync
+    @Environment(MediaSyncController.self) private var mediaSync
+    let date: String
+    @State private var selectedGap: CoverageGap?
+
+    private var analyzer: CoverageGapAnalyzer {
+        CoverageGapAnalyzer(
+            date: date,
+            schedule: sync.snapshot.schedule,
+            freeTime: (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeEntries(on: date),
+            healthSleep: sync.healthSleep,
+            manualSleep: sync.snapshot.sleep
+        )
+    }
+
+    var body: some View {
+        List {
+            if analyzer.gaps.isEmpty {
+                ContentUnavailableView(
+                    "No gaps to review",
+                    systemImage: "checkmark.circle",
+                    description: Text("Every gap longer than five minutes is covered.")
+                )
+            } else {
+                Section {
+                    LabeledContent("Gaps over 5 minutes", value: "\(analyzer.gaps.count)")
+                    LabeledContent(
+                        "Unlogged time",
+                        value: minutesLabel(analyzer.gaps.reduce(0) { $0 + $1.durationMinutes })
+                    )
+                } header: {
+                    Text("Summary")
+                }
+
+                Section("Fill the gaps") {
+                    ForEach(analyzer.gaps) { gap in
+                        Button {
+                            selectedGap = gap
+                        } label: {
+                            HStack(alignment: .center, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(gap.question)
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
+                                    Text(gap.surroundingContext)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    Label("\(gap.durationMinutes)m unlogged", systemImage: "questionmark.circle")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.orange)
+                                }
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens a form prefilled with this gap's time")
+                    }
+                }
+            }
+        }
+        .navigationTitle("Coverage Gaps")
+        .trackerInlineNavigationTitle()
+        .sheet(item: $selectedGap) { gap in
+            LogCoverageGapView(gap: gap)
+        }
+    }
+
+    private func minutesLabel(_ minutes: Int) -> String {
+        guard minutes >= 60 else { return "\(minutes)m" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
+    }
+}
+
+private struct LogCoverageGapView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(SyncController.self) private var sync
+    let gap: CoverageGap
+
+    @State private var taskName = ""
+    @State private var category = ""
+    @State private var comment = ""
+    @State private var priority = 3
+    @State private var estimateMinutes: Int
+    @State private var startTime: Date
+    @State private var endTime: Date
+    @State private var isSaving = false
+
+    init(gap: CoverageGap) {
+        self.gap = gap
+        _estimateMinutes = State(initialValue: max(5, gap.durationMinutes))
+        _startTime = State(initialValue: Self.date(gap.date, minute: gap.start))
+        _endTime = State(initialValue: Self.date(gap.date, minute: gap.end))
+    }
+
+    private var loggedDurationMinutes: Int {
+        max(0, Calendar.current.dateComponents([.minute], from: startTime, to: endTime).minute ?? 0)
+    }
+
+    private var canSave: Bool {
+        !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && loggedDurationMinutes > 0
+            && !isSaving
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("What did you do?") {
+                    TextField("Task / activity", text: $taskName)
+                    TextField("Category", text: $category)
+                    TextField("Comment", text: $comment, axis: .vertical)
+                }
+
+                Section("When") {
+                    LabeledContent("Date", value: formattedDate)
+                    DatePicker("Start", selection: $startTime, displayedComponents: .hourAndMinute)
+                    DatePicker("Stop", selection: $endTime, displayedComponents: .hourAndMinute)
+                    LabeledContent("Logged duration", value: minutesLabel(loggedDurationMinutes))
+                    if loggedDurationMinutes <= 0 {
+                        Label("Stop must be after start", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section("Planning details") {
+                    Stepper("Priority \(priority)", value: $priority, in: 1...10)
+                    Stepper("Estimate \(estimateMinutes)m", value: $estimateMinutes, in: 5...1440, step: 5)
+                }
+
+                Section {
+                    Text(gap.surroundingContext)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Gap context")
+                }
+            }
+            .navigationTitle("Log Activity")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .disabled(isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }
+                        .disabled(!canSave)
+                }
+            }
+            .interactiveDismissDisabled(isSaving)
+        }
+    }
+
+    private var formattedDate: String {
+        guard let value = Date.trackerDateFormatter.date(from: gap.date) else { return gap.date }
+        return value.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private func save() {
+        let request = CreateTaskRequest(
+            date: gap.date,
+            task: taskName.trimmingCharacters(in: .whitespacesAndNewlines),
+            category: category.trimmingCharacters(in: .whitespacesAndNewlines),
+            comment: comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil
+                : comment.trimmingCharacters(in: .whitespacesAndNewlines),
+            priority: priority,
+            estimateMinutes: estimateMinutes,
+            start: Date.trackerTimeFormatter.string(from: startTime),
+            stop: Date.trackerTimeFormatter.string(from: endTime),
+            status: .logged,
+            source: "ios-gap-fill",
+            importedAt: ISO8601DateFormatter().string(from: Date())
+        )
+        isSaving = true
+        Task {
+            await sync.createTask(request)
+            isSaving = false
+            dismiss()
+        }
+    }
+
+    private func minutesLabel(_ minutes: Int) -> String {
+        guard minutes >= 60 else { return "\(minutes)m" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
+    }
+
+    private static func date(_ dateString: String, minute: Int) -> Date {
+        let base = Date.trackerDateFormatter.date(from: dateString) ?? Date()
+        let startOfDay = Calendar.current.startOfDay(for: base)
+        return Calendar.current.date(byAdding: .minute, value: minute, to: startOfDay) ?? base
     }
 }
 

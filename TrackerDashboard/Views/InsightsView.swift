@@ -119,6 +119,15 @@ struct InsightsView: View {
             .filter { $0.estimateMinutes != nil }
     }
 
+    private var remainingWorkloadItems: [ScheduleItem] {
+        workloadItems
+            .filter { !isCompletedForInsights($0) }
+            .sorted {
+                ($0.adjustedPriority ?? -1, $0.priority ?? -1, -($0.estimateMinutes ?? 0), $0.task)
+                    > ($1.adjustedPriority ?? -1, $1.priority ?? -1, -($1.estimateMinutes ?? 0), $1.task)
+            }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -126,7 +135,13 @@ struct InsightsView: View {
                     Text("Insights")
                         .font(.largeTitle.weight(.bold))
 
-                    workloadCard
+                    NavigationLink {
+                        WorkloadDetailView(tasks: remainingWorkloadItems)
+                    } label: {
+                        workloadCard
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows unfinished priority tasks and their estimated durations")
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         NavigationLink {
@@ -239,6 +254,9 @@ struct InsightsView: View {
                 Spacer()
                 Text("\(actualMinutes)m / \(adjustedWorkloadMinutes)m")
                     .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
             }
 
@@ -1003,6 +1021,48 @@ private struct ArcGaugeShape: Shape {
         var path = Path()
         path.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
         return path
+    }
+}
+
+private struct WorkloadDetailView: View {
+    let tasks: [ScheduleItem]
+
+    private var totalMinutes: Int {
+        tasks.reduce(0) { $0 + ($1.estimateMinutes ?? 0) }
+    }
+
+    var body: some View {
+        List {
+            if tasks.isEmpty {
+                ContentUnavailableView(
+                    "Priority workload complete",
+                    systemImage: "checkmark.circle",
+                    description: Text("There are no unfinished AP 3+ tasks with estimates.")
+                )
+            } else {
+                Section {
+                    LabeledContent("Tasks remaining", value: "\(tasks.count)")
+                    LabeledContent("Estimated time", value: minutesLabel(totalMinutes))
+                } header: {
+                    Text("Summary")
+                }
+
+                Section("Still to do") {
+                    ForEach(tasks) { task in
+                        InsightTaskRow(task: task, tint: .blue)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Workload")
+        .trackerInlineNavigationTitle()
+    }
+
+    private func minutesLabel(_ minutes: Int) -> String {
+        guard minutes >= 60 else { return "\(minutes)m" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
     }
 }
 

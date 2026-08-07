@@ -34,6 +34,18 @@ interface DeviceRegistration {
   updatedAt: number;
 }
 
+interface MorningLiveActivityRequest {
+  date: string;
+  greeting: string;
+  staleAt: string;
+  suggestions: Array<{
+    rowId: string;
+    task: string;
+    category: string;
+    estimateMinutes?: number;
+  }>;
+}
+
 interface MediaSession {
   id: string;
   source: MediaSource;
@@ -126,6 +138,7 @@ interface HeartbeatRequest {
 const SETTINGS_KEY = "settings";
 const SOURCES_KEY = "sources";
 const DEVICES_KEY = "devices";
+const LIVE_ACTIVITY_DEVICES_KEY = "live_activity_devices";
 const SESSIONS_KEY = "sessions";
 const NUDGE_HISTORY_KEY = "nudge_history";
 // Explicit inactive heartbeats normally close a session. This longer fallback
@@ -161,6 +174,12 @@ export class NudgeCoordinator implements DurableObject {
     }
     if (request.method === "POST" && url.pathname === "/devices") {
       return this.registerDevice(await request.json<Partial<DeviceRegistration>>());
+    }
+    if (request.method === "POST" && url.pathname === "/live-activity-devices") {
+      return this.registerLiveActivityDevice(await request.json<Partial<DeviceRegistration>>());
+    }
+    if (request.method === "POST" && url.pathname === "/morning-live-activity") {
+      return this.startMorningLiveActivity(await request.json<Partial<MorningLiveActivityRequest>>());
     }
     if (request.method === "POST" && url.pathname === "/tasks-changed") {
       return this.handleTasksChanged();
@@ -343,6 +362,79 @@ export class NudgeCoordinator implements DurableObject {
     next.push({ token, environment, updatedAt: Date.now() });
     await this.state.storage.put(DEVICES_KEY, next.slice(-8));
     return json({ ok: true, deviceCount: next.length });
+  }
+
+  private async registerLiveActivityDevice(body: Partial<DeviceRegistration>): Promise<Response> {
+    const token = String(body.token ?? "").trim().toLowerCase();
+    const environment = body.environment;
+    if (!/^[a-f0-9]{32,}$/.test(token) || (environment !== "sandbox" && environment !== "production")) {
+      return json({ error: "invalid_device" }, 400);
+    }
+    const devices = (await this.state.storage.get<DeviceRegistration[]>(LIVE_ACTIVITY_DEVICES_KEY)) ?? [];
+    const next = devices.filter(device => device.token !== token);
+    next.push({ token, environment, updatedAt: Date.now() });
+    await this.state.storage.put(LIVE_ACTIVITY_DEVICES_KEY, next.slice(-8));
+    return json({ ok: true, deviceCount: next.length });
+  }
+
+  private async startMorningLiveActivity(body: Partial<MorningLiveActivityRequest>): Promise<Response> {
+    const date = cleanContextValue(body.date, 10);
+    const greeting = cleanContextValue(body.greeting, 80);
+    const staleAt = Date.parse(String(body.staleAt ?? ""));
+    const suggestions = Array.isArray(body.suggestions)
+      ? body.suggestions.slice(0, 3).filter(suggestion =>
+          typeof suggestion?.rowId === "string"
+          && typeof suggestion?.task === "string"
+          && typeof suggestion?.category === "string"
+        )
+      : [];
+    if (!date || !greeting || !Number.isFinite(staleAt) || suggestions.length === 0) {
+      return json({ error: "invalid_morning_live_activity" }, 400);
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = {
+      aps: {
+        timestamp,
+        event: "start",
+        "stale-date": Math.floor(staleAt / 1000),
+        "attributes-type": "TaskLiveActivityAttributes",
+        attributes: {},
+        "content-state": {
+          phase: "morning",
+          rowId: null,
+          task: "",
+          category: "",
+          startedAt: null,
+          estimateMinutes: null,
+          suggestions,
+          runningTasks: null,
+          greeting,
+          morningDate: date
+        }
+      }
+    };
+
+    const devices = (await this.state.storage.get<DeviceRegistration[]>(LIVE_ACTIVITY_DEVICES_KEY)) ?? [];
+    if (devices.length === 0 || !hasAPNsConfiguration(this.env)) {
+      return json({ ok: false, error: "no_live_activity_device" }, 503);
+    }
+    let delivered = false;
+    const invalidTokens = new Set<string>();
+    for (const device of devices) {
+      const result = await sendAPNs(this.env, device, payload, "liveactivity");
+      delivered ||= result.ok;
+      if (result.status === 410 || result.reason === "BadDeviceToken" || result.reason === "Unregistered") {
+        invalidTokens.add(device.token);
+      }
+    }
+    if (invalidTokens.size > 0) {
+      await this.state.storage.put(
+        LIVE_ACTIVITY_DEVICES_KEY,
+        devices.filter(device => !invalidTokens.has(device.token))
+      );
+    }
+    return json({ ok: delivered }, delivered ? 200 : 503);
   }
 
   private async status(): Promise<unknown> {
@@ -1294,7 +1386,8 @@ let cachedProviderToken: { value: string; createdAt: number; key: string } | und
 async function sendAPNs(
   env: Env,
   device: DeviceRegistration,
-  payload: unknown
+  payload: unknown,
+  pushType: "alert" | "liveactivity" = "alert"
 ): Promise<{ ok: boolean; status: number; reason?: string }> {
   const providerToken = await apnsProviderToken(env);
   const host = device.environment === "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com";
@@ -1302,10 +1395,12 @@ async function sendAPNs(
     method: "POST",
     headers: {
       authorization: `bearer ${providerToken}`,
-      "apns-push-type": "alert",
+      "apns-push-type": pushType,
       "apns-priority": "10",
       "apns-expiration": "0",
-      "apns-topic": env.APNS_TOPIC!
+      "apns-topic": pushType === "liveactivity"
+        ? `${env.APNS_TOPIC!}.push-type.liveactivity`
+        : env.APNS_TOPIC!
     },
     body: JSON.stringify(payload)
   });

@@ -7,6 +7,7 @@ final class HealthKitSleepStore {
     static let shared = HealthKitSleepStore()
 
     private let store = HKHealthStore()
+    private var observerQuery: HKObserverQuery?
 
     var isAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
@@ -18,6 +19,29 @@ final class HealthKitSleepStore {
         else { return }
 
         try await store.requestAuthorization(toShare: [], read: [sleepType])
+    }
+
+    func startObservingSleepChanges(
+        onUpdate: @escaping @Sendable () async -> Void
+    ) async throws {
+        guard isAvailable,
+              observerQuery == nil,
+              let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)
+        else { return }
+
+        let query = HKObserverQuery(sampleType: sleepType, predicate: nil) { _, completion, error in
+            guard error == nil else {
+                completion()
+                return
+            }
+            Task {
+                await onUpdate()
+                completion()
+            }
+        }
+        observerQuery = query
+        store.execute(query)
+        try await store.enableBackgroundDelivery(for: sleepType, frequency: .immediate)
     }
 
     func sleep(for date: Date = Date()) async throws -> HealthSleepEntry? {

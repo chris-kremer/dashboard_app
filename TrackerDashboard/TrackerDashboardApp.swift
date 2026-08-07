@@ -1,5 +1,6 @@
 import SwiftUI
 #if os(iOS)
+import ActivityKit
 import UIKit
 import UserNotifications
 #endif
@@ -48,6 +49,17 @@ final class TrackerDashboardAppDelegate: NSObject, UIApplicationDelegate, UNUser
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         NudgeNotifications.configure()
+        NudgeNotifications.observeLiveActivityPushToStartToken()
+        Task {
+            do {
+                try await HealthKitSleepStore.shared.requestAuthorization()
+                try await HealthKitSleepStore.shared.startObservingSleepChanges {
+                    await SyncController.shared.refreshHealthSleep()
+                }
+            } catch {
+                // Foreground and scheduled refreshes remain available as a fallback.
+            }
+        }
         return true
     }
 
@@ -116,6 +128,22 @@ enum NudgeNotifications {
     @MainActor
     static func registerForRemoteNotifications() {
         UIApplication.shared.registerForRemoteNotifications()
+    }
+
+    static func observeLiveActivityPushToStartToken() {
+        guard #available(iOS 17.2, *) else { return }
+        Task {
+            for await tokenData in Activity<TaskLiveActivityAttributes>.pushToStartTokenUpdates {
+                let token = tokenData.map { String(format: "%02x", $0) }.joined()
+                do {
+                    try await TrackerAPIClient.shared.registerLiveActivityDevice(
+                        LiveActivityDeviceRequest(token: token, environment: apnsEnvironment)
+                    )
+                } catch {
+                    UserDefaults.standard.set(error.localizedDescription, forKey: registrationErrorKey)
+                }
+            }
+        }
     }
 
     static func syncRegistrationAndSettings() async {

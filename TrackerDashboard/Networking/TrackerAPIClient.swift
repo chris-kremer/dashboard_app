@@ -50,6 +50,14 @@ actor TrackerAPIClient {
         _ = try await sendJSON(request, method: "POST", path: "nudge/devices", responseType: NudgeAPIResponse.self)
     }
 
+    func registerLiveActivityDevice(_ request: LiveActivityDeviceRequest) async throws {
+        _ = try await sendJSON(request, method: "POST", path: "nudge/live-activity-devices", responseType: NudgeAPIResponse.self)
+    }
+
+    func startMorningLiveActivity(_ request: MorningLiveActivityRequest) async throws {
+        _ = try await sendJSON(request, method: "POST", path: "nudge/morning-live-activity", responseType: NudgeAPIResponse.self)
+    }
+
     func sendNudgeCommand(_ request: NudgeCommandRequest) async throws {
         _ = try await sendJSON(request, method: "POST", path: "nudge/command", responseType: NudgeAPIResponse.self)
     }

@@ -61,6 +61,7 @@ final class SyncController {
             if let sleep = try await HealthKitSleepStore.shared.sleep() {
                 healthSleep = sleep
                 try cache.saveHealthSleep(sleep)
+                reloadWidgets()
             }
         } catch {
             syncState.lastError = error.localizedDescription
@@ -348,7 +349,17 @@ final class SyncController {
 #endif
 #if os(iOS)
         Task {
-            await TaskLiveActivityCoordinator.shared.sync(with: snapshot)
+            if let request = await TaskLiveActivityCoordinator.shared.sync(
+                with: snapshot,
+                healthSleep: healthSleep
+            ) {
+                do {
+                    try await apiClient.startMorningLiveActivity(request)
+                    await TaskLiveActivityCoordinator.shared.markMorningShown(date: request.date)
+                } catch {
+                    // A later HealthKit or foreground refresh can retry the morning start.
+                }
+            }
         }
 #endif
     }

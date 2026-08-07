@@ -93,6 +93,7 @@ struct TaskLiveActivityAttributes: ActivityAttributes {
         enum Phase: String, Codable, Hashable {
             case running
             case suggestions
+            case morning
         }
 
         var phase: Phase
@@ -103,6 +104,8 @@ struct TaskLiveActivityAttributes: ActivityAttributes {
         var estimateMinutes: Int?
         var suggestions: [Suggestion]
         var runningTasks: [RunningTask]?
+        var greeting: String?
+        var morningDate: String?
 
         var activeTasks: [RunningTask] {
             if let runningTasks, !runningTasks.isEmpty {

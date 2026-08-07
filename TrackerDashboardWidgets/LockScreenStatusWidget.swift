@@ -109,7 +109,7 @@ struct TaskLiveActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: context.state.phase == .running ? "timer" : "sparkles")
+                    Image(systemName: islandIcon(for: context.state))
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.mint)
                 }
@@ -134,7 +134,7 @@ struct TaskLiveActivityWidget: Widget {
                     TaskLiveActivityIslandBottomView(state: context.state)
                 }
             } compactLeading: {
-                Image(systemName: context.state.phase == .running ? "timer" : "checkmark")
+                Image(systemName: compactIcon(for: context.state))
                     .foregroundStyle(.mint)
             } compactTrailing: {
                 if context.state.activeTasks.count == 1,
@@ -146,11 +146,11 @@ struct TaskLiveActivityWidget: Widget {
                     Text("\(context.state.activeTasks.count)")
                         .font(.caption.weight(.bold))
                 } else {
-                    Text("Next")
+                    Text(context.state.phase == .morning ? "Start" : "Next")
                         .font(.caption2.weight(.semibold))
                 }
             } minimal: {
-                Image(systemName: context.state.phase == .running ? "timer" : "checkmark")
+                Image(systemName: compactIcon(for: context.state))
                     .foregroundStyle(.mint)
             }
             .keylineTint(.mint)
@@ -158,10 +158,29 @@ struct TaskLiveActivityWidget: Widget {
     }
 
     private func islandTitle(for state: TaskLiveActivityAttributes.ContentState) -> String {
+        if state.phase == .morning {
+            return state.greeting ?? "Good morning!"
+        }
         if state.activeTasks.count > 1 {
             return "\(state.activeTasks.count) tasks running"
         }
         return state.activeTasks.first?.task ?? "Choose what’s next"
+    }
+
+    private func islandIcon(for state: TaskLiveActivityAttributes.ContentState) -> String {
+        switch state.phase {
+        case .running: "timer"
+        case .suggestions: "sparkles"
+        case .morning: "sun.max.fill"
+        }
+    }
+
+    private func compactIcon(for state: TaskLiveActivityAttributes.ContentState) -> String {
+        switch state.phase {
+        case .running: "timer"
+        case .suggestions: "checkmark"
+        case .morning: "sun.max.fill"
+        }
     }
 }
 
@@ -170,10 +189,13 @@ private struct TaskLiveActivityLockScreenView: View {
 
     var body: some View {
         Group {
-            if state.phase == .running {
+            switch state.phase {
+            case .running:
                 runningView
-            } else {
+            case .suggestions:
                 suggestionsView
+            case .morning:
+                morningView
             }
         }
         .padding(16)
@@ -245,30 +267,48 @@ private struct TaskLiveActivityLockScreenView: View {
                 .font(.headline)
                 .foregroundStyle(.mint)
 
-            if state.suggestions.isEmpty {
-                Text("Nothing else is queued for today.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(state.suggestions.prefix(3)) { suggestion in
-                    Button(intent: StartTaskIntent(rowId: suggestion.rowId)) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "play.fill")
-                                .font(.caption)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(suggestion.task)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                Text(suggestionDetail(suggestion))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 0)
+            suggestionButtons
+        }
+    }
+
+    private var morningView: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Label(state.greeting ?? "Good morning!", systemImage: "sun.max.fill")
+                .font(.headline)
+                .foregroundStyle(.yellow)
+
+            Text("Where do you want to start today?")
+                .font(.subheadline.weight(.semibold))
+
+            suggestionButtons
+        }
+    }
+
+    @ViewBuilder
+    private var suggestionButtons: some View {
+        if state.suggestions.isEmpty {
+            Text("Nothing else is queued for today.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        } else {
+            ForEach(state.suggestions.prefix(3)) { suggestion in
+                Button(intent: StartTaskIntent(rowId: suggestion.rowId)) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.fill")
+                            .font(.caption)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(suggestion.task)
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                            Text(suggestionDetail(suggestion))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
-                        .contentShape(Rectangle())
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
             }
         }
     }

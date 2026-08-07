@@ -139,16 +139,19 @@ actor TaskLiveActivityCoordinator {
 
     func syncFromCache() async {
         guard let snapshot = SharedCache.shared.loadSnapshot() else { return }
-        await sync(with: snapshot)
+        _ = await sync(with: snapshot, healthSleep: SharedCache.shared.loadHealthSleep())
     }
 
-    func sync(with snapshot: TrackerSnapshot) async {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    func sync(
+        with snapshot: TrackerSnapshot,
+        healthSleep: HealthSleepEntry? = nil
+    ) async -> MorningLiveActivityRequest? {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return nil }
 
         let activities = Activity<TaskLiveActivityAttributes>.activities
         let runningTasks = snapshot.todayOpenTasks.filter { $0.start != nil && $0.stop == nil }
         if !runningTasks.isEmpty {
-            let state = runningState(for: runningTasks)
+            let state = runningState(for: runningTasks, morningDate: storedMorningDate)
             let content = ActivityContent(state: state, staleDate: nil)
 
             if let activity = activities.first {
@@ -167,36 +170,68 @@ actor TaskLiveActivityCoordinator {
                     // The task remains safely logged even if Live Activities are unavailable.
                 }
             }
-            return
+            return nil
         }
 
-        guard !activities.isEmpty else { return }
         let suggestions = suggestions(from: snapshot)
-        let state = TaskLiveActivityAttributes.ContentState(
-            phase: .suggestions,
-            rowId: nil,
-            task: "",
-            category: "",
-            startedAt: nil,
-            estimateMinutes: nil,
-            suggestions: suggestions,
-            runningTasks: nil
-        )
-        let content = ActivityContent(state: state, staleDate: nil)
+        let today = Date.trackerDateFormatter.string(from: Date())
+        let shouldShowMorning = storedMorningDate != today
+            && isCompletedMorningSleep(healthSleep)
+            && !suggestions.isEmpty
+
+        if activities.isEmpty {
+            guard shouldShowMorning else { return nil }
+            let state = morningState(suggestions: suggestions, date: today)
+            do {
+                _ = try Activity.request(
+                    attributes: TaskLiveActivityAttributes(),
+                    content: ActivityContent(state: state, staleDate: morningStaleDate()),
+                    pushType: nil
+                )
+                storedMorningDate = today
+                return nil
+            } catch {
+                return MorningLiveActivityRequest(
+                    date: today,
+                    greeting: state.greeting ?? "Good morning!",
+                    staleAt: morningStaleDate() ?? Date().addingTimeInterval(6 * 60 * 60),
+                    suggestions: suggestions
+                )
+            }
+        }
 
         for activity in activities {
             if suggestions.isEmpty {
-                await activity.end(content, dismissalPolicy: .immediate)
+                let state = suggestionsState(suggestions: [])
+                await activity.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .immediate)
             } else {
                 // Keep the activity alive while it offers the next tasks. An ended
                 // activity is frozen, so starting a suggestion would otherwise have
                 // to create a new activity before the Lock Screen can update.
-                await activity.update(content)
+                let state: TaskLiveActivityAttributes.ContentState
+                if shouldShowMorning {
+                    state = morningState(suggestions: suggestions, date: today)
+                    storedMorningDate = today
+                } else {
+                    state = suggestionsState(suggestions: suggestions)
+                }
+                await activity.update(ActivityContent(
+                    state: state,
+                    staleDate: state.phase == .morning ? morningStaleDate() : nil
+                ))
             }
         }
+        return nil
     }
 
-    private func runningState(for tasks: [ScheduleItem]) -> TaskLiveActivityAttributes.ContentState {
+    func markMorningShown(date: String) {
+        storedMorningDate = date
+    }
+
+    private func runningState(
+        for tasks: [ScheduleItem],
+        morningDate: String?
+    ) -> TaskLiveActivityAttributes.ContentState {
         let liveTasks = tasks.map {
             TaskLiveActivityAttributes.RunningTask(
                 rowId: $0.id,
@@ -215,8 +250,91 @@ actor TaskLiveActivityCoordinator {
             startedAt: first.startedAt,
             estimateMinutes: first.estimateMinutes,
             suggestions: [],
-            runningTasks: liveTasks
+            runningTasks: liveTasks,
+            greeting: nil,
+            morningDate: morningDate
         )
+    }
+
+    private func suggestionsState(
+        suggestions: [TaskLiveActivityAttributes.Suggestion]
+    ) -> TaskLiveActivityAttributes.ContentState {
+        TaskLiveActivityAttributes.ContentState(
+            phase: .suggestions,
+            rowId: nil,
+            task: "",
+            category: "",
+            startedAt: nil,
+            estimateMinutes: nil,
+            suggestions: suggestions,
+            runningTasks: nil,
+            greeting: nil,
+            morningDate: storedMorningDate
+        )
+    }
+
+    private func morningState(
+        suggestions: [TaskLiveActivityAttributes.Suggestion],
+        date: String
+    ) -> TaskLiveActivityAttributes.ContentState {
+        TaskLiveActivityAttributes.ContentState(
+            phase: .morning,
+            rowId: nil,
+            task: "",
+            category: "",
+            startedAt: nil,
+            estimateMinutes: nil,
+            suggestions: suggestions,
+            runningTasks: nil,
+            greeting: morningGreeting(for: date),
+            morningDate: date
+        )
+    }
+
+    private func isCompletedMorningSleep(_ sleep: HealthSleepEntry?) -> Bool {
+        guard let sleep,
+              sleep.date == Date.trackerDateFormatter.string(from: Date()),
+              sleep.totalMinutes >= 90,
+              let wake = sleep.intervals.map(\.end).max()
+        else { return false }
+
+        let now = Date()
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: now)
+        let minutesSinceWake = now.timeIntervalSince(wake) / 60
+        return hour >= 4
+            && hour < 14
+            && minutesSinceWake >= 10
+            && minutesSinceWake <= 6 * 60
+            && calendar.isDate(wake, inSameDayAs: now)
+    }
+
+    private func morningGreeting(for date: String) -> String {
+        let greetings = [
+            "Good morning!",
+            "Rise and shine.",
+            "Morning — fresh start.",
+            "You’re up. Let’s make it count.",
+            "Hello, new day.",
+            "Morning! One good start is enough."
+        ]
+        let stableIndex = date.utf8.reduce(0) { ($0 + Int($1)) % greetings.count }
+        return greetings[stableIndex]
+    }
+
+    private func morningStaleDate() -> Date? {
+        Calendar.current.date(bySettingHour: 14, minute: 0, second: 0, of: Date())
+    }
+
+    private var storedMorningDate: String? {
+        get {
+            UserDefaults(suiteName: SharedCache.appGroupIdentifier)?
+                .string(forKey: "morningLiveActivityDate")
+        }
+        set {
+            UserDefaults(suiteName: SharedCache.appGroupIdentifier)?
+                .set(newValue, forKey: "morningLiveActivityDate")
+        }
     }
 
     private func suggestions(from snapshot: TrackerSnapshot) -> [TaskLiveActivityAttributes.Suggestion] {

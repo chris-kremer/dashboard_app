@@ -11,6 +11,18 @@ struct NudgeDeviceRequest: Codable {
     let environment: String
 }
 
+struct LiveActivityDeviceRequest: Codable {
+    let token: String
+    let environment: String
+}
+
+struct MorningLiveActivityRequest: Codable {
+    let date: String
+    let greeting: String
+    let staleAt: Date
+    let suggestions: [TaskLiveActivityAttributes.Suggestion]
+}
+
 struct NudgeCommandRequest: Codable {
     let command: String
     let minutes: Int?

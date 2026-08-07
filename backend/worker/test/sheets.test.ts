@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SHEET_RANGES,
+  buildExactTaskRowWrite,
   buildTaskPatchValues,
   isOpenTask,
   normalizeDate,
@@ -164,6 +165,15 @@ describe("sheet parsers", () => {
 });
 
 describe("request mapping", () => {
+  it("targets the exact A:T row when creating a task", () => {
+    const values = [["2026-08-07", "X Bookmarks"]];
+
+    expect(buildExactTaskRowWrite(1011, values)).toEqual({
+      range: "schedule!A1011:T1011",
+      values
+    });
+  });
+
   it("builds sparse task patch values", () => {
     expect(buildTaskPatchValues(12, {
       priority: 5,

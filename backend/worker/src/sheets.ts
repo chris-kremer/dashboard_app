@@ -93,8 +93,12 @@ export async function appendTask(env: Env, body: any): Promise<ScheduleItem> {
     body.sourceId ?? "",
     body.importedAt ?? ""
   ]];
-  await sheetsAppend(env, "schedule!A:T", values);
+  await sheetsBatchUpdate(env, [buildExactTaskRowWrite(rowNumber, values)]);
   return await readScheduleRow(env, rowNumber);
+}
+
+export function buildExactTaskRowWrite(rowNumber: number, values: unknown[][]): { range: string; values: unknown[][] } {
+  return { range: `schedule!A${rowNumber}:T${rowNumber}`, values };
 }
 
 export async function patchTask(env: Env, rowNumber: number, body: any): Promise<ScheduleItem> {

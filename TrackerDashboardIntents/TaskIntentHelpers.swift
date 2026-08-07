@@ -149,9 +149,12 @@ actor TaskLiveActivityCoordinator {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return nil }
 
         let activities = Activity<TaskLiveActivityAttributes>.activities
-        let runningTasks = snapshot.todayOpenTasks.filter { $0.start != nil && $0.stop == nil }
-        if !runningTasks.isEmpty {
-            let state = runningState(for: runningTasks, morningDate: storedMorningDate)
+        let activeTasks = snapshot.todayOpenTasks.filter { $0.start != nil }
+        if !activeTasks.isEmpty {
+            let phase: TaskLiveActivityAttributes.ContentState.Phase = activeTasks.contains { $0.stop == nil }
+                ? .running
+                : .paused
+            let state = activeState(for: activeTasks, phase: phase, morningDate: storedMorningDate)
             let content = ActivityContent(state: state, staleDate: nil)
 
             if let activity = activities.first {
@@ -228,8 +231,9 @@ actor TaskLiveActivityCoordinator {
         storedMorningDate = date
     }
 
-    private func runningState(
+    private func activeState(
         for tasks: [ScheduleItem],
+        phase: TaskLiveActivityAttributes.ContentState.Phase,
         morningDate: String?
     ) -> TaskLiveActivityAttributes.ContentState {
         let liveTasks = tasks.map {
@@ -238,12 +242,13 @@ actor TaskLiveActivityCoordinator {
                 task: $0.task,
                 category: $0.category,
                 startedAt: $0.dateTime(from: $0.start) ?? Date(),
-                estimateMinutes: $0.estimateMinutes
+                estimateMinutes: $0.estimateMinutes,
+                pausedAt: $0.dateTime(from: $0.stop)
             )
         }
         let first = liveTasks[0]
         return TaskLiveActivityAttributes.ContentState(
-            phase: .running,
+            phase: phase,
             rowId: first.rowId,
             task: first.task,
             category: first.category,

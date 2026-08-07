@@ -104,7 +104,7 @@ struct TaskListWidgetView: View {
     private func startStopButton(for task: ScheduleItem) -> some View {
         if task.start != nil && task.stop == nil {
             Button(intent: StopTaskIntent(rowId: task.id)) {
-                Image(systemName: "stop.fill")
+                Image(systemName: "pause.fill")
             }
             .foregroundStyle(.blue)
         } else {

@@ -85,13 +85,16 @@ struct TaskLiveActivityAttributes: ActivityAttributes {
         let category: String
         let startedAt: Date
         let estimateMinutes: Int?
+        let pausedAt: Date?
 
         var id: String { rowId }
+        var isPaused: Bool { pausedAt != nil }
     }
 
     struct ContentState: Codable, Hashable {
         enum Phase: String, Codable, Hashable {
             case running
+            case paused
             case suggestions
             case morning
         }
@@ -111,7 +114,7 @@ struct TaskLiveActivityAttributes: ActivityAttributes {
             if let runningTasks, !runningTasks.isEmpty {
                 return runningTasks
             }
-            guard phase == .running,
+            guard phase == .running || phase == .paused,
                   let rowId,
                   let startedAt
             else {
@@ -122,7 +125,8 @@ struct TaskLiveActivityAttributes: ActivityAttributes {
                 task: task,
                 category: category,
                 startedAt: startedAt,
-                estimateMinutes: estimateMinutes
+                estimateMinutes: estimateMinutes,
+                pausedAt: nil
             )]
         }
     }

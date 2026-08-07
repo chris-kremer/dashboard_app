@@ -2,8 +2,8 @@ import AppIntents
 import Foundation
 
 struct StopTaskIntent: AppIntent {
-    static var title: LocalizedStringResource = "Stop Task"
-    static var description = IntentDescription("Writes the current time to the task stop column.")
+    static var title: LocalizedStringResource = "Pause Task"
+    static var description = IntentDescription("Pauses the task at the current time so it can be resumed later.")
 
     @Parameter(title: "Row ID")
     var rowId: String

@@ -116,9 +116,15 @@ struct TaskLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     if context.state.activeTasks.count == 1,
                        let task = context.state.activeTasks.first {
-                        Text(task.startedAt, style: .timer)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                        if task.isPaused {
+                            Label("Paused", systemImage: "pause.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.orange)
+                        } else {
+                            Text(task.startedAt, style: .timer)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
                     } else if context.state.activeTasks.count > 1 {
                         Text("\(context.state.activeTasks.count) live")
                             .font(.caption.weight(.semibold))
@@ -139,9 +145,14 @@ struct TaskLiveActivityWidget: Widget {
             } compactTrailing: {
                 if context.state.activeTasks.count == 1,
                    let task = context.state.activeTasks.first {
-                    Text(task.startedAt, style: .timer)
-                        .font(.caption2.monospacedDigit())
-                        .frame(width: 42)
+                    if task.isPaused {
+                        Image(systemName: "pause.fill")
+                            .font(.caption2)
+                    } else {
+                        Text(task.startedAt, style: .timer)
+                            .font(.caption2.monospacedDigit())
+                            .frame(width: 42)
+                    }
                 } else if context.state.activeTasks.count > 1 {
                     Text("\(context.state.activeTasks.count)")
                         .font(.caption.weight(.bold))
@@ -162,7 +173,9 @@ struct TaskLiveActivityWidget: Widget {
             return state.greeting ?? "Good morning!"
         }
         if state.activeTasks.count > 1 {
-            return "\(state.activeTasks.count) tasks running"
+            return state.phase == .paused
+                ? "\(state.activeTasks.count) tasks paused"
+                : "\(state.activeTasks.count) active tasks"
         }
         return state.activeTasks.first?.task ?? "Choose what’s next"
     }
@@ -170,6 +183,7 @@ struct TaskLiveActivityWidget: Widget {
     private func islandIcon(for state: TaskLiveActivityAttributes.ContentState) -> String {
         switch state.phase {
         case .running: "timer"
+        case .paused: "pause.circle.fill"
         case .suggestions: "sparkles"
         case .morning: "sun.max.fill"
         }
@@ -178,6 +192,7 @@ struct TaskLiveActivityWidget: Widget {
     private func compactIcon(for state: TaskLiveActivityAttributes.ContentState) -> String {
         switch state.phase {
         case .running: "timer"
+        case .paused: "pause.fill"
         case .suggestions: "checkmark"
         case .morning: "sun.max.fill"
         }
@@ -191,6 +206,8 @@ private struct TaskLiveActivityLockScreenView: View {
         Group {
             switch state.phase {
             case .running:
+                runningView
+            case .paused:
                 runningView
             case .suggestions:
                 suggestionsView
@@ -224,9 +241,36 @@ private struct TaskLiveActivityLockScreenView: View {
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.mint)
                         .lineLimit(1)
+                    if task.isPaused {
+                        Label("Paused", systemImage: "pause.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.orange)
+                    }
                 }
 
                 Spacer(minLength: 4)
+
+                if task.isPaused {
+                    Button(intent: StartTaskIntent(rowId: task.rowId)) {
+                        Image(systemName: "play.fill")
+                            .font(.headline.weight(.bold))
+                            .frame(width: 38, height: 38)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.circle)
+                    .tint(.orange)
+                    .accessibilityLabel("Resume \(task.task)")
+                } else {
+                    Button(intent: StopTaskIntent(rowId: task.rowId)) {
+                        Image(systemName: "pause.fill")
+                            .font(.headline.weight(.bold))
+                            .frame(width: 38, height: 38)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.circle)
+                    .tint(.orange)
+                    .accessibilityLabel("Pause \(task.task)")
+                }
 
                 Button(intent: CompleteTaskIntent(rowId: task.rowId)) {
                     Image(systemName: "checkmark")
@@ -245,9 +289,9 @@ private struct TaskLiveActivityLockScreenView: View {
 
     private var multipleTasksView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("\(state.activeTasks.count) tasks running", systemImage: "timer")
+            Label(multipleTasksTitle, systemImage: state.phase == .paused ? "pause.circle.fill" : "timer")
                 .font(.headline)
-                .foregroundStyle(.mint)
+                .foregroundStyle(state.phase == .paused ? Color.orange : Color.mint)
 
             ForEach(state.activeTasks.prefix(3)) { task in
                 TaskLiveCompactTaskRow(task: task)
@@ -259,6 +303,17 @@ private struct TaskLiveActivityLockScreenView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var multipleTasksTitle: String {
+        let pausedCount = state.activeTasks.filter(\.isPaused).count
+        if pausedCount == state.activeTasks.count {
+            return "\(pausedCount) tasks paused"
+        }
+        if pausedCount > 0 {
+            return "\(state.activeTasks.count) active · \(pausedCount) paused"
+        }
+        return "\(state.activeTasks.count) tasks running"
     }
 
     private var suggestionsView: some View {
@@ -327,19 +382,29 @@ private struct TaskLiveProgressView: View {
         VStack(spacing: 6) {
             if let estimate = task.estimateMinutes,
                estimate > 0 {
-                ProgressView(
-                    timerInterval: task.startedAt...task.startedAt.addingTimeInterval(TimeInterval(estimate * 60)),
-                    countsDown: false
-                )
-                .tint(.mint)
+                if let pausedAt = task.pausedAt {
+                    ProgressView(value: min(max(pausedAt.timeIntervalSince(task.startedAt) / TimeInterval(estimate * 60), 0), 1))
+                        .tint(.orange)
+                } else {
+                    ProgressView(
+                        timerInterval: task.startedAt...task.startedAt.addingTimeInterval(TimeInterval(estimate * 60)),
+                        countsDown: false
+                    )
+                    .tint(.mint)
+                }
             } else {
                 ProgressView(value: 0)
                     .tint(.mint)
             }
 
             HStack {
-                Text(task.startedAt, style: .timer)
-                    .monospacedDigit()
+                if let pausedAt = task.pausedAt {
+                    Text("\(elapsedLabel(from: task.startedAt, to: pausedAt)) paused")
+                        .foregroundStyle(.orange)
+                } else {
+                    Text(task.startedAt, style: .timer)
+                        .monospacedDigit()
+                }
                 Spacer()
                 if let estimate = task.estimateMinutes {
                     Text("Estimate \(estimate) min")
@@ -350,6 +415,11 @@ private struct TaskLiveProgressView: View {
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
         }
+    }
+
+    private func elapsedLabel(from start: Date, to end: Date) -> String {
+        let minutes = max(0, Int(end.timeIntervalSince(start) / 60))
+        return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m"
     }
 }
 
@@ -366,8 +436,13 @@ private struct TaskLiveCompactTaskRow: View {
                     HStack(spacing: 4) {
                         Text(task.category.isEmpty ? "Uncategorized" : task.category)
                         Text("·")
-                        Text(task.startedAt, style: .timer)
-                            .monospacedDigit()
+                        if let pausedAt = task.pausedAt {
+                            Text("\(elapsedLabel(from: task.startedAt, to: pausedAt)) paused")
+                                .foregroundStyle(.orange)
+                        } else {
+                            Text(task.startedAt, style: .timer)
+                                .monospacedDigit()
+                        }
                         if let estimate = task.estimateMinutes {
                             Text("/ \(estimate)m")
                         }
@@ -377,6 +452,28 @@ private struct TaskLiveCompactTaskRow: View {
                 }
 
                 Spacer(minLength: 2)
+
+                if task.isPaused {
+                    Button(intent: StartTaskIntent(rowId: task.rowId)) {
+                        Image(systemName: "play.fill")
+                            .font(.caption.weight(.bold))
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.circle)
+                    .tint(.orange)
+                    .accessibilityLabel("Resume \(task.task)")
+                } else {
+                    Button(intent: StopTaskIntent(rowId: task.rowId)) {
+                        Image(systemName: "pause.fill")
+                            .font(.caption.weight(.bold))
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.circle)
+                    .tint(.orange)
+                    .accessibilityLabel("Pause \(task.task)")
+                }
 
                 Button(intent: CompleteTaskIntent(rowId: task.rowId)) {
                     Image(systemName: "checkmark")
@@ -390,13 +487,23 @@ private struct TaskLiveCompactTaskRow: View {
             }
 
             if let estimate = task.estimateMinutes, estimate > 0 {
-                ProgressView(
-                    timerInterval: task.startedAt...task.startedAt.addingTimeInterval(TimeInterval(estimate * 60)),
-                    countsDown: false
-                )
-                .tint(.mint)
+                if let pausedAt = task.pausedAt {
+                    ProgressView(value: min(max(pausedAt.timeIntervalSince(task.startedAt) / TimeInterval(estimate * 60), 0), 1))
+                        .tint(.orange)
+                } else {
+                    ProgressView(
+                        timerInterval: task.startedAt...task.startedAt.addingTimeInterval(TimeInterval(estimate * 60)),
+                        countsDown: false
+                    )
+                    .tint(.mint)
+                }
             }
         }
+    }
+
+    private func elapsedLabel(from start: Date, to end: Date) -> String {
+        let minutes = max(0, Int(end.timeIntervalSince(start) / 60))
+        return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m"
     }
 }
 
@@ -404,12 +511,31 @@ private struct TaskLiveActivityIslandBottomView: View {
     let state: TaskLiveActivityAttributes.ContentState
 
     var body: some View {
-        if state.phase == .running {
+        if state.phase == .running || state.phase == .paused {
             VStack(spacing: 7) {
                 ForEach(state.activeTasks.prefix(2)) { task in
                     if state.activeTasks.count == 1 {
                         HStack(spacing: 12) {
                             TaskLiveProgressView(task: task)
+                            if task.isPaused {
+                                Button(intent: StartTaskIntent(rowId: task.rowId)) {
+                                    Image(systemName: "play.fill")
+                                        .font(.headline.weight(.bold))
+                                        .frame(width: 32, height: 32)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .buttonBorderShape(.circle)
+                                .tint(.orange)
+                            } else {
+                                Button(intent: StopTaskIntent(rowId: task.rowId)) {
+                                    Image(systemName: "pause.fill")
+                                        .font(.headline.weight(.bold))
+                                        .frame(width: 32, height: 32)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .buttonBorderShape(.circle)
+                                .tint(.orange)
+                            }
                             Button(intent: CompleteTaskIntent(rowId: task.rowId)) {
                                 Image(systemName: "checkmark")
                                     .font(.headline.weight(.bold))

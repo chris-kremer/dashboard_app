@@ -53,8 +53,11 @@ struct TopTaskWidgetView: View {
                 }
                 Spacer(minLength: 0)
                 HStack(spacing: 8) {
-                    widgetButton(systemImage: "play.fill", tint: .orange, intent: StartTaskIntent(rowId: task.id))
-                    widgetButton(systemImage: "stop.fill", tint: .blue, intent: StopTaskIntent(rowId: task.id))
+                    if task.start != nil && task.stop == nil {
+                        widgetButton(systemImage: "pause.fill", tint: .blue, intent: StopTaskIntent(rowId: task.id))
+                    } else {
+                        widgetButton(systemImage: "play.fill", tint: .orange, intent: StartTaskIntent(rowId: task.id))
+                    }
                     widgetButton(systemImage: "checkmark", tint: .green, intent: CompleteTaskIntent(rowId: task.id))
                 }
             }

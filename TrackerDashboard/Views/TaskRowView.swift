@@ -251,7 +251,7 @@ private enum TaskRowAction {
         switch self {
         case .done: "checkmark"
         case .start: "play.fill"
-        case .stop: "stop.fill"
+        case .stop: "pause.fill"
         }
     }
 
@@ -259,7 +259,7 @@ private enum TaskRowAction {
         switch self {
         case .done: "checkmark.circle.fill"
         case .start: "play.circle.fill"
-        case .stop: "stop.circle.fill"
+        case .stop: "pause.circle.fill"
         }
     }
 
@@ -275,7 +275,7 @@ private enum TaskRowAction {
         switch self {
         case .done: "Mark task done"
         case .start: "Start task"
-        case .stop: "Stop task"
+        case .stop: "Pause task"
         }
     }
 }

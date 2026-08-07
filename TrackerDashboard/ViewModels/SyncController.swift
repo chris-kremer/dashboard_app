@@ -183,13 +183,21 @@ final class SyncController {
     }
 
     func stopTask(_ task: ScheduleItem) async {
+        let stopTime = Date.trackerTimeFormatter.string(from: Date())
+        var optimistic = task
+        optimistic.stop = stopTime
+        optimistic.status = .inProgress
+        try? cache.upsertTask(optimistic)
+        snapshot = cache.loadSnapshot() ?? snapshot
+        reloadWidgets()
+
         let patch = TaskPatchRequest(
             priority: nil,
             estimateMinutes: nil,
             comment: nil,
             delay: nil,
             start: nil,
-            stop: Date.trackerTimeFormatter.string(from: Date()),
+            stop: stopTime,
             status: .inProgress
         )
         await updateTask(rowNumber: task.rowNumber, patch: patch)

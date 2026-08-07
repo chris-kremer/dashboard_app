@@ -113,10 +113,15 @@ final class SyncController {
     }
 
     func createTask(_ request: CreateTaskRequest) async {
-        await perform(kind: .createTask, request: request) {
+        let succeeded = await perform(kind: .createTask, request: request) {
             let item = try await apiClient.createTask(request)
             try cache.upsertTask(item)
             await refresh(date: request.date)
+        }
+        if succeeded {
+            postSaveConfirmation(request.source == "ios-gap-fill" || request.status == .logged
+                ? "Activity logged"
+                : "To-do added")
         }
     }
 
@@ -138,7 +143,7 @@ final class SyncController {
         snapshot = cache.loadSnapshot() ?? snapshot
         reloadWidgets()
 
-        await perform(kind: .completeTask, request: CompleteTaskRequest(source: source, stop: stopTime)) {
+        let succeeded = await perform(kind: .completeTask, request: CompleteTaskRequest(source: source, stop: stopTime)) {
             _ = try await apiClient.updateTask(rowNumber: task.rowNumber, patch: TaskPatchRequest(
                 priority: nil,
                 estimateMinutes: nil,
@@ -152,6 +157,9 @@ final class SyncController {
             try cache.upsertTask(item)
             snapshot = cache.loadSnapshot() ?? snapshot
             reloadWidgets()
+        }
+        if succeeded {
+            postSaveConfirmation("Task completed")
         }
     }
 
@@ -228,24 +236,33 @@ final class SyncController {
     }
 
     func logCaffeine(_ request: CaffeineRequest) async {
-        await perform(kind: .logCaffeine, request: request) {
+        let succeeded = await perform(kind: .logCaffeine, request: request) {
             _ = try await apiClient.logCaffeine(request)
             await refresh(date: request.date)
+        }
+        if succeeded {
+            postSaveConfirmation("\(request.label.trimmingCharacters(in: .whitespacesAndNewlines).capitalized) logged")
         }
     }
 
     func logFood(_ request: FoodRequest) async {
-        await perform(kind: .logFood, request: request) {
+        let succeeded = await perform(kind: .logFood, request: request) {
             _ = try await apiClient.logFood(request)
             await refresh(date: request.date)
+        }
+        if succeeded {
+            postSaveConfirmation("\(request.mealContext) logged")
         }
     }
 
     func upsertSleep(_ request: SleepRequest) async {
-        await perform(kind: .upsertSleep, request: request) {
+        let succeeded = await perform(kind: .upsertSleep, request: request) {
             _ = try await apiClient.upsertSleep(request)
             await refresh(date: request.date)
             SleepReminderScheduler.update(for: snapshot)
+        }
+        if succeeded {
+            postSaveConfirmation("Sleep saved")
         }
     }
 
@@ -276,19 +293,30 @@ final class SyncController {
     }
 #endif
 
+    @discardableResult
     private func perform<Request: Encodable>(
         kind: PendingOperation.Kind,
         request: Request,
         operation: () async throws -> Void
-    ) async {
+    ) async -> Bool {
         do {
             try await operation()
+            return true
         } catch {
             var pending = PendingOperation(kind: kind, payload: (try? TrackerJSON.encoder.encode(request)) ?? Data())
             pending.lastError = error.localizedDescription
             try? cache.appendPendingOperation(pending)
             syncState = cache.loadSyncState()
+            return false
         }
+    }
+
+    private func postSaveConfirmation(_ message: String) {
+        NotificationCenter.default.post(
+            name: .entrySaved,
+            object: nil,
+            userInfo: ["message": message]
+        )
     }
 
     private func continueTaskFromLoggedInterval(_ task: ScheduleItem) async {
@@ -363,4 +391,8 @@ final class SyncController {
         }
 #endif
     }
+}
+
+extension Notification.Name {
+    static let entrySaved = Notification.Name("entrySaved")
 }

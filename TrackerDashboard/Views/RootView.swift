@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @State private var navigation = AppNavigation()
     @State private var celebration: RewardCelebration?
+    @State private var saveConfirmation: SaveConfirmation?
 
     var body: some View {
         TabView(selection: $navigation.selectedSection) {
@@ -28,14 +29,21 @@ struct RootView: View {
         }
         .environment(navigation)
         .overlay(alignment: .top) {
-            if let celebration {
-                PositiveReinforcementOverlay(celebration: celebration)
-                    .padding(.horizontal, 18)
-                    .padding(.top, 12)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+            VStack(spacing: 10) {
+                if let celebration {
+                    PositiveReinforcementOverlay(celebration: celebration)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                if let saveConfirmation {
+                    SaveConfirmationBanner(confirmation: saveConfirmation)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
+            .padding(.horizontal, 18)
+            .padding(.top, 12)
         }
         .sensoryFeedback(.success, trigger: celebration?.id)
+        .sensoryFeedback(.success, trigger: saveConfirmation?.id)
         .onReceive(NotificationCenter.default.publisher(for: .positiveReinforcement)) { notification in
             let source = notification.userInfo?["source"] as? String
             let next = RewardCelebration(source: source)
@@ -47,6 +55,21 @@ struct RootView: View {
                 guard celebration?.id == next.id else { return }
                 withAnimation(.easeInOut(duration: 0.3)) {
                     celebration = nil
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .entrySaved)) { notification in
+            let next = SaveConfirmation(
+                message: notification.userInfo?["message"] as? String ?? "Saved"
+            )
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                saveConfirmation = next
+            }
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                guard saveConfirmation?.id == next.id else { return }
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    saveConfirmation = nil
                 }
             }
         }
@@ -67,6 +90,33 @@ struct RootView: View {
         navigation.showingCoverageGaps = true
     }
 #endif
+}
+
+private struct SaveConfirmation: Equatable {
+    let id = UUID()
+    let message: String
+}
+
+private struct SaveConfirmationBanner: View {
+    let confirmation: SaveConfirmation
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+            Text(confirmation.message)
+                .font(.subheadline.weight(.semibold))
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.green.gradient, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .green.opacity(0.22), radius: 12, y: 6)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(confirmation.message)
+    }
 }
 
 private struct RewardCelebration: Equatable {

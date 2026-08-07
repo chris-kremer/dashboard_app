@@ -55,6 +55,19 @@ interface MediaSession {
   active: boolean;
 }
 
+interface CoverageMediaSession {
+  startedAt: string | number;
+  endedAt: string | number;
+}
+
+export interface DailyCoverageSummary {
+  loggedMinutes: number;
+  unloggedMinutes: number;
+  coverageMinutes: number;
+  percentage: number;
+  gapCount: number;
+}
+
 interface DailyUsageContext {
   previousSessionCount: number;
   totalMinutes: number;
@@ -141,6 +154,7 @@ const DEVICES_KEY = "devices";
 const LIVE_ACTIVITY_DEVICES_KEY = "live_activity_devices";
 const SESSIONS_KEY = "sessions";
 const NUDGE_HISTORY_KEY = "nudge_history";
+const LAST_COVERAGE_SUMMARY_DATE_KEY = "last_coverage_summary_date";
 // Explicit inactive heartbeats normally close a session. This longer fallback
 // keeps brief browser timer throttling from manufacturing a brand-new visit.
 const HEARTBEAT_TTL_MS = 4 * 60_000;
@@ -183,6 +197,10 @@ export class NudgeCoordinator implements DurableObject {
     }
     if (request.method === "POST" && url.pathname === "/tasks-changed") {
       return this.handleTasksChanged();
+    }
+    if (request.method === "POST" && url.pathname === "/daily-coverage-summary") {
+      const body = await request.json<{ now?: number }>().catch((): { now?: number } => ({}));
+      return this.sendDailyCoverageSummary(body.now);
     }
     if (request.method === "POST" && url.pathname === "/test") {
       const now = Date.now();
@@ -349,6 +367,43 @@ export class NudgeCoordinator implements DurableObject {
     if (rechecking) await this.state.storage.put(SOURCES_KEY, sources);
     await this.scheduleNextAlarm(now, sources, settings);
     return json({ ok: true, rechecking });
+  }
+
+  private async sendDailyCoverageSummary(requestedNow?: number): Promise<Response> {
+    const now = Number.isFinite(requestedNow) ? Number(requestedNow) : Date.now();
+    const timeZone = this.env.TIME_ZONE ?? "Europe/Berlin";
+    const date = localDateKey(now, timeZone);
+    const lastSentDate = await this.state.storage.get<string>(LAST_COVERAGE_SUMMARY_DATE_KEY);
+    if (lastSentDate === date) {
+      return json({ ok: true, skipped: "already_sent", date });
+    }
+
+    const snapshot = await readSnapshot(this.env, date);
+    const sessions = await this.mediaSessions() as CoverageMediaSession[];
+    const summary = dailyCoverageSummary(snapshot, sessions, now, timeZone);
+    const gapText = summary.gapCount === 0
+      ? "No gaps over five minutes remain. Tap to review your log."
+      : `${summary.gapCount} ${summary.gapCount === 1 ? "gap is" : "gaps are"} still missing. Tap to fill ${summary.gapCount === 1 ? "it" : "them"} in.`;
+    const payload = {
+      aps: {
+        alert: {
+          title: `${summary.percentage}% of today is logged`,
+          body: `${formatCoverageMinutes(summary.loggedMinutes)} recorded. ${gapText}`
+        },
+        sound: "default",
+        "thread-id": "daily-coverage-summary"
+      },
+      kind: "coverage_summary",
+      date,
+      coveragePercent: summary.percentage,
+      gapCount: summary.gapCount
+    };
+    const delivered = await this.deliver(payload);
+    if (delivered) {
+      await this.state.storage.put(LAST_COVERAGE_SUMMARY_DATE_KEY, date);
+    }
+    console.log(JSON.stringify({ event: "daily_coverage_summary", date, delivered, ...summary }));
+    return json({ ok: delivered, date, summary }, delivered ? 200 : 503);
   }
 
   private async registerDevice(body: Partial<DeviceRegistration>): Promise<Response> {
@@ -1379,6 +1434,122 @@ function localDateKey(timestamp: number, timeZone = "Europe/Berlin"): string {
     month: "2-digit",
     day: "2-digit"
   }).format(new Date(timestamp));
+}
+
+export function dailyCoverageSummary(
+  snapshot: TrackerSnapshot,
+  mediaSessions: CoverageMediaSession[],
+  now: number,
+  timeZone = "Europe/Berlin"
+): DailyCoverageSummary {
+  const targetDate = snapshot.date;
+  const coverageMinutes = Math.max(1, localMinuteForTimestamp(now, timeZone));
+  const intervals: Array<{ start: number; end: number }> = [];
+  const append = (start: number | undefined, end: number | undefined): void => {
+    if (start == null || end == null) return;
+    if (end < start) {
+      intervals.push({ start, end: 24 * 60 }, { start: 0, end });
+    } else {
+      intervals.push({ start, end: Math.max(start + 1, end) });
+    }
+  };
+
+  for (const item of snapshot.schedule) {
+    const start = minuteFromClock(item.start);
+    const end = minuteFromClock(item.stop)
+      ?? (item.date === targetDate ? coverageMinutes : undefined);
+    append(start, end);
+  }
+  for (const item of snapshot.freeTime) {
+    const start = minuteFromClock(item.start ?? item.time);
+    if (start == null) continue;
+    const fallback = start + Math.max(item.durationMinutes ?? 30, 15);
+    append(start, minuteFromClock(item.end) ?? fallback);
+  }
+  if (snapshot.sleep) {
+    append(
+      minuteFromClock(snapshot.sleep.sleepStart ?? "00:00"),
+      minuteFromClock(snapshot.sleep.actualWake ?? snapshot.sleep.plannedWake ?? snapshot.sleep.alarmTime)
+    );
+  }
+
+  for (const session of mediaSessions) {
+    const startedAt = timestampValue(session.startedAt);
+    const endedAt = timestampValue(session.endedAt);
+    if (startedAt == null || endedAt == null) continue;
+    const startDate = localDateKey(startedAt, timeZone);
+    const endDate = localDateKey(endedAt, timeZone);
+    if (endDate < targetDate || startDate > targetDate) continue;
+    const start = startDate < targetDate ? 0 : localMinuteForTimestamp(startedAt, timeZone);
+    const end = endDate > targetDate ? coverageMinutes : localMinuteForTimestamp(endedAt, timeZone);
+    append(start, end);
+  }
+
+  const merged = intervals
+    .map(interval => ({
+      start: Math.max(0, Math.min(interval.start, coverageMinutes)),
+      end: Math.max(0, Math.min(interval.end, coverageMinutes))
+    }))
+    .filter(interval => interval.end > interval.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end)
+    .reduce<Array<{ start: number; end: number }>>((result, interval) => {
+      const last = result.at(-1);
+      if (last && interval.start <= last.end) {
+        last.end = Math.max(last.end, interval.end);
+      } else {
+        result.push({ ...interval });
+      }
+      return result;
+    }, []);
+
+  const loggedMinutes = merged.reduce((total, interval) => total + interval.end - interval.start, 0);
+  let cursor = 0;
+  let gapCount = 0;
+  for (const interval of merged) {
+    if (interval.start - cursor > 5) gapCount += 1;
+    cursor = Math.max(cursor, interval.end);
+  }
+  if (coverageMinutes - cursor > 5) gapCount += 1;
+
+  return {
+    loggedMinutes,
+    unloggedMinutes: Math.max(0, coverageMinutes - loggedMinutes),
+    coverageMinutes,
+    percentage: Math.min(100, Math.max(0, Math.round(loggedMinutes / coverageMinutes * 100))),
+    gapCount
+  };
+}
+
+function minuteFromClock(value?: string): number | undefined {
+  if (!value) return undefined;
+  const parts = value.split(":").map(Number);
+  if (parts.length < 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) return undefined;
+  return Math.min(Math.max(parts[0]! * 60 + parts[1]!, 0), 24 * 60);
+}
+
+function localMinuteForTimestamp(timestamp: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date(timestamp));
+  const hour = Number(parts.find(part => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find(part => part.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
+
+function timestampValue(value: string | number): number | undefined {
+  const timestamp = typeof value === "number" ? value : Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : undefined;
+}
+
+function formatCoverageMinutes(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (hours === 0) return `${remainder}m`;
+  if (remainder === 0) return `${hours}h`;
+  return `${hours}h ${remainder}m`;
 }
 
 let cachedProviderToken: { value: string; createdAt: number; key: string } | undefined;

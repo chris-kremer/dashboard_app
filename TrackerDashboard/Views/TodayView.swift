@@ -34,6 +34,7 @@ enum TrackerSection: String, CaseIterable, Identifiable {
 final class AppNavigation {
     var selectedSection: TrackerSection = .today
     var selectedTask: ScheduleItem?
+    var showingCoverageGaps = false
 }
 
 struct TodayView: View {

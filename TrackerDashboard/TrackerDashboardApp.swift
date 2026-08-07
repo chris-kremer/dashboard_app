@@ -99,6 +99,8 @@ final class TrackerDashboardAppDelegate: NSObject, UIApplicationDelegate, UNUser
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 NudgeNotifications.presentRewardIfNeeded(response.notification.request.content.userInfo)
             }
+        } else if NudgeNotifications.isCoverageSummary(response.notification.request.content.userInfo) {
+            NudgeNotifications.requestCoverageReview()
         }
         completionHandler()
     }
@@ -107,6 +109,7 @@ final class TrackerDashboardAppDelegate: NSObject, UIApplicationDelegate, UNUser
 enum NudgeNotifications {
     static let deviceTokenKey = "nudgeDeviceToken"
     static let registrationErrorKey = "nudgeRegistrationError"
+    static let pendingCoverageReviewKey = "pendingCoverageReview"
 
     static func configure() {
         UNUserNotificationCenter.current().setNotificationCategories([])
@@ -114,6 +117,21 @@ enum NudgeNotifications {
 
     static func isReward(_ userInfo: [AnyHashable: Any]) -> Bool {
         userInfo["kind"] as? String == "reward"
+    }
+
+    static func isCoverageSummary(_ userInfo: [AnyHashable: Any]) -> Bool {
+        userInfo["kind"] as? String == "coverage_summary"
+    }
+
+    static func requestCoverageReview() {
+        UserDefaults.standard.set(true, forKey: pendingCoverageReviewKey)
+        NotificationCenter.default.post(name: .showCoverageGaps, object: nil)
+    }
+
+    static func consumeCoverageReviewRequest() -> Bool {
+        guard UserDefaults.standard.bool(forKey: pendingCoverageReviewKey) else { return false }
+        UserDefaults.standard.removeObject(forKey: pendingCoverageReviewKey)
+        return true
     }
 
     static func presentRewardIfNeeded(_ userInfo: [AnyHashable: Any]) {
@@ -177,5 +195,6 @@ enum NudgeNotifications {
 
 extension Notification.Name {
     static let positiveReinforcement = Notification.Name("positiveReinforcement")
+    static let showCoverageGaps = Notification.Name("showCoverageGaps")
 }
 #endif

@@ -50,7 +50,23 @@ struct RootView: View {
                 }
             }
         }
+#if os(iOS)
+        .onAppear {
+            openCoverageReviewIfRequested()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showCoverageGaps)) { _ in
+            openCoverageReviewIfRequested()
+        }
+#endif
     }
+
+#if os(iOS)
+    private func openCoverageReviewIfRequested() {
+        guard NudgeNotifications.consumeCoverageReviewRequest() else { return }
+        navigation.selectedSection = .insights
+        navigation.showingCoverageGaps = true
+    }
+#endif
 }
 
 private struct RewardCelebration: Equatable {

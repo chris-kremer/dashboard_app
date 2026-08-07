@@ -83,6 +83,22 @@ export default {
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "unknown_error" }, 500);
     }
+  },
+
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    const now = controller.scheduledTime;
+    const localHour = Number(new Intl.DateTimeFormat("en-GB", {
+      timeZone: env.TIME_ZONE ?? "Europe/Berlin",
+      hour: "2-digit",
+      hourCycle: "h23"
+    }).format(new Date(now)));
+    if (localHour !== 22) return;
+
+    await coordinator(env).fetch(new Request("https://nudge/daily-coverage-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ now })
+    }));
   }
 };
 

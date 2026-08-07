@@ -3,6 +3,7 @@ import SwiftUI
 struct InsightsView: View {
     @Environment(SyncController.self) private var sync
     @Environment(MediaSyncController.self) private var mediaSync
+    @Environment(AppNavigation.self) private var navigation
 
     private var adjustedWorkloadMinutes: Int {
         workloadItems.reduce(0) { total, item in
@@ -140,6 +141,7 @@ struct InsightsView: View {
     }
 
     var body: some View {
+        @Bindable var navigation = navigation
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -266,6 +268,9 @@ struct InsightsView: View {
                 .padding(.bottom, 32)
             }
             .background(Color.trackerGroupedBackground)
+        }
+        .navigationDestination(isPresented: $navigation.showingCoverageGaps) {
+            CoverageGapsDetailView(date: sync.snapshot.date)
         }
     }
 

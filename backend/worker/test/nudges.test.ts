@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   contentIdentity,
+  dailyCoverageSummary,
   followUpAlert,
   hasProductiveTaskInProgress,
   initialAlert,
@@ -154,6 +155,29 @@ describe("watch nudge variation", () => {
     ]);
 
     expect(productiveMinutesToday(data, current, "Europe/Berlin")).toBe(150);
+  });
+
+  it("calculates daily logged coverage without double-counting overlaps", () => {
+    const now = Date.parse("2026-08-03T20:00:00.000Z"); // 22:00 in Berlin
+    const data = {
+      ...snapshot([
+        task({ rowNumber: 2, status: "done", start: "09:00", stop: "10:00" })
+      ]),
+      sleep: { date: "2026-08-03", sleepStart: "00:00", actualWake: "08:00" }
+    };
+
+    const summary = dailyCoverageSummary(data, [{
+      startedAt: "2026-08-03T07:30:00.000Z",
+      endedAt: "2026-08-03T08:30:00.000Z"
+    }], now, "Europe/Berlin");
+
+    expect(summary).toEqual({
+      loggedMinutes: 570,
+      unloggedMinutes: 750,
+      coverageMinutes: 1320,
+      percentage: 43,
+      gapCount: 2
+    });
   });
 
   it("rejects unsupported productive-time and content claims", () => {

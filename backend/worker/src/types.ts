@@ -55,6 +55,26 @@ export interface FoodEntry {
   confidence?: string;
 }
 
+export interface TaskSuggestion {
+  task: string;
+  category?: string;
+  comment?: string;
+  priority?: number;
+  estimateMinutes?: number;
+  useCount: number;
+  lastUsedDate: string;
+}
+
+export interface FoodSuggestion {
+  item: string;
+  mealContext?: string;
+  amount?: string;
+  location?: string;
+  confidence?: string;
+  useCount: number;
+  lastUsedDate: string;
+}
+
 export interface SleepEntry {
   date: string;
   sleepHours?: number;
@@ -83,6 +103,8 @@ export interface TrackerSnapshot {
   caffeine: CaffeineEntry[];
   caffeineOptions: string[];
   food: FoodEntry[];
+  taskSuggestions?: TaskSuggestion[];
+  foodSuggestions?: FoodSuggestion[];
   sleep: SleepEntry | null;
   freeTime: FreeTimeEntry[];
 }

@@ -8,6 +8,8 @@ struct TrackerSnapshot: Codable, Equatable {
     var caffeine: [CaffeineEntry]
     var caffeineOptions: [String]?
     var food: [FoodEntry]
+    var taskSuggestions: [TaskSuggestion]?
+    var foodSuggestions: [FoodSuggestion]?
     var sleep: SleepEntry?
     var freeTime: [FreeTimeEntry]?
 
@@ -20,6 +22,8 @@ struct TrackerSnapshot: Codable, Equatable {
             caffeine: [],
             caffeineOptions: [],
             food: [],
+            taskSuggestions: [],
+            foodSuggestions: [],
             sleep: nil,
             freeTime: []
         )

@@ -49,6 +49,18 @@ struct ScheduleItem: Codable, Identifiable, Equatable {
     }
 }
 
+struct TaskSuggestion: Codable, Identifiable, Equatable {
+    let task: String
+    let category: String?
+    let comment: String?
+    let priority: Int?
+    let estimateMinutes: Int?
+    let useCount: Int
+    let lastUsedDate: String
+
+    var id: String { task.lowercased() }
+}
+
 extension ScheduleItem {
     var isOpenDisplayTask: Bool {
         !task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

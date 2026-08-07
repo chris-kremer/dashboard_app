@@ -1,4 +1,4 @@
-import type { CaffeineEntry, Env, FoodEntry, FreeTimeEntry, ScheduleItem, SleepEntry, TrackerSnapshot } from "./types";
+import type { CaffeineEntry, Env, FoodEntry, FoodSuggestion, FreeTimeEntry, ScheduleItem, SleepEntry, TaskSuggestion, TrackerSnapshot } from "./types";
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -62,11 +62,98 @@ export async function readSnapshot(env: Env, date: string): Promise<TrackerSnaps
   const allCaffeine = parseCaffeine(values[1]?.values ?? []);
   const caffeine = allCaffeine.filter(item => item.date === date);
   const caffeineOptions = rankedLabels(allCaffeine.map(item => item.label));
-  const food = parseFood(values[2]?.values ?? []).filter(item => item.date === date);
+  const allFood = parseFood(values[2]?.values ?? []);
+  const food = allFood.filter(item => item.date === date);
   const sleep = parseSleep(values[3]?.values ?? []).find(item => item.date === date) ?? null;
   const freeTime = parseFreeTime(values[4]?.values ?? []).filter(item => item.date === date);
 
-  return { serverTime: new Date().toISOString(), date, schedule, openTasks, caffeine, caffeineOptions, food, sleep, freeTime };
+  return {
+    serverTime: new Date().toISOString(),
+    date,
+    schedule,
+    openTasks,
+    caffeine,
+    caffeineOptions,
+    food,
+    taskSuggestions: buildTaskSuggestions(allSchedule),
+    foodSuggestions: buildFoodSuggestions(allFood),
+    sleep,
+    freeTime
+  };
+}
+
+export function buildTaskSuggestions(items: ScheduleItem[]): TaskSuggestion[] {
+  return groupedByNormalized(items, item => item.task).map(group => ({
+    task: mostCommon(group, item => item.task) ?? group.at(-1)!.task,
+    category: mostCommon(group, item => item.category),
+    comment: mostCommon(group, item => item.comment),
+    priority: mostCommon(group, item => item.priority),
+    estimateMinutes: mostCommon(group, item => item.estimateMinutes),
+    useCount: group.length,
+    lastUsedDate: latestDate(group.map(item => item.date))
+  })).sort(sortSuggestions).slice(0, 250);
+}
+
+export function buildFoodSuggestions(items: FoodEntry[]): FoodSuggestion[] {
+  return groupedByNormalized(items, item => item.item).map(group => ({
+    item: mostCommon(group, item => item.item) ?? group.at(-1)!.item,
+    mealContext: mostCommon(group, item => item.mealContext),
+    amount: mostCommon(group, item => item.amount),
+    location: mostCommon(group, item => item.location),
+    confidence: mostCommon(group, item => item.confidence),
+    useCount: group.length,
+    lastUsedDate: latestDate(group.map(item => item.date))
+  })).sort(sortSuggestions).slice(0, 250);
+}
+
+function groupedByNormalized<T>(items: T[], label: (item: T) => string): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = normalizeSuggestionText(label(item));
+    if (!key) continue;
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+function mostCommon<T, V extends string | number>(items: T[], value: (item: T) => V | undefined): V | undefined {
+  const counts = new Map<string, { value: V; count: number; latestIndex: number }>();
+  items.forEach((item, index) => {
+    const candidate = value(item);
+    if (candidate == null || (typeof candidate === "string" && !candidate.trim())) return;
+    const key = typeof candidate === "string" ? normalizeSuggestionText(candidate) : String(candidate);
+    const existing = counts.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.latestIndex = index;
+      existing.value = typeof candidate === "string" ? candidate.trim() as V : candidate;
+    } else {
+      counts.set(key, {
+        value: typeof candidate === "string" ? candidate.trim() as V : candidate,
+        count: 1,
+        latestIndex: index
+      });
+    }
+  });
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count || b.latestIndex - a.latestIndex)[0]?.value;
+}
+
+function normalizeSuggestionText(value: string): string {
+  return value.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+}
+
+function latestDate(dates: string[]): string {
+  return dates.filter(Boolean).sort().at(-1) ?? "";
+}
+
+function sortSuggestions(
+  a: { useCount: number; lastUsedDate: string },
+  b: { useCount: number; lastUsedDate: string }
+): number {
+  return b.useCount - a.useCount || b.lastUsedDate.localeCompare(a.lastUsedDate);
 }
 
 export async function appendTask(env: Env, body: any): Promise<ScheduleItem> {

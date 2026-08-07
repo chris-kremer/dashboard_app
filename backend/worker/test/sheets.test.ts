@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   SHEET_RANGES,
+  buildFoodSuggestions,
+  buildTaskSuggestions,
   buildExactTaskRowWrite,
   buildTaskPatchValues,
   isOpenTask,
@@ -161,6 +163,42 @@ describe("sheet parsers", () => {
 
   it("ranks caffeine labels by count", () => {
     expect(rankedLabels(["coffee", "tea", "Coffee", "espresso", "tea", "coffee"])).toEqual(["coffee", "tea", "espresso"]);
+  });
+
+  it("builds task defaults from the most common historical values", () => {
+    const tasks = parseSchedule([
+      ["2026-08-01", "Weekly Review", "Admin", "Notion", 4, 30],
+      ["2026-08-03", "weekly review", "Work", "Paper", 5, 45],
+      ["2026-08-06", "Weekly Review", "Admin", "Notion", 4, 45]
+    ]);
+
+    expect(buildTaskSuggestions(tasks)).toEqual([{
+      task: "Weekly Review",
+      category: "Admin",
+      comment: "Notion",
+      priority: 4,
+      estimateMinutes: 45,
+      useCount: 3,
+      lastUsedDate: "2026-08-06"
+    }]);
+  });
+
+  it("builds meal defaults without carrying over notes", () => {
+    const food = parseFood([
+      ["2026-08-01", "08:00", "Breakfast", "Oats", "1 bowl", "Home", "first note", "reported"],
+      ["2026-08-04", "08:10", "Breakfast", "oats", "1 bowl", "Home", "different note", "reported"],
+      ["2026-08-06", "13:00", "Lunch", "Oats", "small", "Office", "another note", "estimated"]
+    ]);
+
+    expect(buildFoodSuggestions(food)).toEqual([{
+      item: "Oats",
+      mealContext: "Breakfast",
+      amount: "1 bowl",
+      location: "Home",
+      confidence: "reported",
+      useCount: 3,
+      lastUsedDate: "2026-08-06"
+    }]);
   });
 });
 

@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct LogFoodView: View {
+    private static let mealOptions = ["Breakfast", "Lunch", "Dinner", "Snack", "Brunch"]
+
     @Environment(\.dismiss) private var dismiss
     @Environment(SyncController.self) private var sync
-    @State private var mealContext = ""
+    @State private var mealContext = mealOptions[0]
     @State private var item = ""
     @State private var amount = ""
     @State private var location = ""
@@ -14,7 +16,11 @@ struct LogFoodView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Meal (Breakfast / Lunch / Dinner)", text: $mealContext)
+                Picker("Meal", selection: $mealContext) {
+                    ForEach(Self.mealOptions, id: \.self) { meal in
+                        Text(meal).tag(meal)
+                    }
+                }
                 TextField("Item", text: $item)
                 TextField("Amount / size", text: $amount)
                 TextField("Location", text: $location)

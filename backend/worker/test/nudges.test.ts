@@ -4,6 +4,8 @@ import {
   dailyCoverageSummary,
   followUpAlert,
   hasProductiveTaskInProgress,
+  inactiveHeartbeatExpired,
+  INACTIVE_HEARTBEAT_GRACE_MS,
   initialAlert,
   parsePersonalizedAlerts,
   personalizedAlertsSchema,
@@ -223,6 +225,14 @@ describe("watch nudge variation", () => {
   it("uses stable video and post IDs to detect content changes", () => {
     expect(contentIdentity("youtube", "https://www.youtube.com/watch?v=abc123&t=30")).toBe("youtube:abc123");
     expect(contentIdentity("x", "https://x.com/example/status/123456789?s=20")).toBe("x:123456789");
+  });
+
+  it("does not finalize a session during a transient browser inactive pulse", () => {
+    const inactiveSince = Date.parse("2026-08-19T10:00:00.000Z");
+
+    expect(inactiveHeartbeatExpired(inactiveSince, inactiveSince + 20_000)).toBe(false);
+    expect(inactiveHeartbeatExpired(inactiveSince, inactiveSince + 60_000)).toBe(false);
+    expect(inactiveHeartbeatExpired(inactiveSince, inactiveSince + INACTIVE_HEARTBEAT_GRACE_MS)).toBe(true);
   });
 
   it("selects different positive reinforcement messages", () => {

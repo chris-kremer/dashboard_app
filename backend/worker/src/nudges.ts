@@ -158,7 +158,12 @@ const LAST_COVERAGE_SUMMARY_DATE_KEY = "last_coverage_summary_date";
 // Explicit inactive heartbeats normally close a session. This longer fallback
 // keeps brief browser timer throttling from manufacturing a brand-new visit.
 const HEARTBEAT_TTL_MS = 4 * 60_000;
-const INACTIVE_HEARTBEAT_GRACE_MS = 5_000;
+// Browser pages can emit a short inactive pulse while YouTube swaps its player,
+// navigates within the SPA, or Firefox moves a tab between foreground states.
+// Keep the authoritative session alive long enough for the next regular
+// heartbeat to cancel that pulse. Nudges are already suspended while
+// `inactiveSince` is set, so this delays only finalization/reward logging.
+export const INACTIVE_HEARTBEAT_GRACE_MS = 75_000;
 const MINUTE_MS = 60_000;
 const NUDGE_INITIAL_DELAY_MINUTES = 0;
 const NUDGE_REPEAT_INTERVAL_MINUTES = 2;
@@ -520,8 +525,7 @@ export class NudgeCoordinator implements DurableObject {
     const stored = (await this.state.storage.get<Partial<Record<MediaSource, ActiveSource>>>(SOURCES_KEY)) ?? {};
     const active: Partial<Record<MediaSource, ActiveSource>> = {};
     for (const [sourceName, source] of Object.entries(stored) as [MediaSource, ActiveSource][]) {
-      const inactiveExpired = source.inactiveSince != null
-        && now - source.inactiveSince >= INACTIVE_HEARTBEAT_GRACE_MS;
+      const inactiveExpired = inactiveHeartbeatExpired(source.inactiveSince, now);
       const heartbeatExpired = now - source.lastSeenAt > HEARTBEAT_TTL_MS;
       if (!inactiveExpired && !heartbeatExpired) {
         active[sourceName] = source;
@@ -1193,6 +1197,10 @@ function freshContentContext(
   if (session.contentObservedAt == null || now - session.contentObservedAt > CONTENT_CONTEXT_TTL_MS) return undefined;
   if (!session.contentTitle && !session.contentAuthor) return undefined;
   return { title: session.contentTitle, author: session.contentAuthor };
+}
+
+export function inactiveHeartbeatExpired(inactiveSince: number | undefined, now: number): boolean {
+  return inactiveSince != null && now - inactiveSince >= INACTIVE_HEARTBEAT_GRACE_MS;
 }
 
 export function contentIdentity(

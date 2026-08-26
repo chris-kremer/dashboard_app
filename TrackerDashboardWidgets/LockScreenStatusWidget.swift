@@ -215,7 +215,8 @@ private struct TaskLiveActivityLockScreenView: View {
                 morningView
             }
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, state.activeTasks.count > 1 ? 10 : 16)
         .foregroundStyle(.white)
     }
 
@@ -293,14 +294,8 @@ private struct TaskLiveActivityLockScreenView: View {
                 .font(.headline)
                 .foregroundStyle(state.phase == .paused ? Color.orange : Color.mint)
 
-            ForEach(state.activeTasks.prefix(3)) { task in
+            ForEach(state.activeTasks.prefix(2)) { task in
                 TaskLiveCompactTaskRow(task: task)
-            }
-
-            if state.activeTasks.count > 3 {
-                Text("+ \(state.activeTasks.count - 3) more running")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -457,32 +452,32 @@ private struct TaskLiveCompactTaskRow: View {
                     Button(intent: StartTaskIntent(rowId: task.rowId)) {
                         Image(systemName: "play.fill")
                             .font(.caption.weight(.bold))
-                            .frame(width: 28, height: 28)
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(Color.orange, in: Circle())
                     }
-                    .buttonStyle(.borderedProminent)
-                    .buttonBorderShape(.circle)
-                    .tint(.orange)
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Resume \(task.task)")
                 } else {
                     Button(intent: StopTaskIntent(rowId: task.rowId)) {
                         Image(systemName: "pause.fill")
                             .font(.caption.weight(.bold))
-                            .frame(width: 28, height: 28)
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(Color.orange, in: Circle())
                     }
-                    .buttonStyle(.borderedProminent)
-                    .buttonBorderShape(.circle)
-                    .tint(.orange)
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Pause \(task.task)")
                 }
 
                 Button(intent: CompleteTaskIntent(rowId: task.rowId)) {
                     Image(systemName: "checkmark")
                         .font(.caption.weight(.bold))
-                        .frame(width: 28, height: 28)
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(Color.mint, in: Circle())
                 }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.circle)
-                .tint(.mint)
+                .buttonStyle(.plain)
                 .accessibilityLabel("Finish \(task.task)")
             }
 

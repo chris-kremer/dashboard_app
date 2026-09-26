@@ -49,6 +49,7 @@ final class TrackerDashboardAppDelegate: NSObject, UIApplicationDelegate, UNUser
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         NudgeNotifications.configure()
+        guard !AppSettings.shared.usesLocalTestData else { return true }
         NudgeNotifications.observeLiveActivityPushToStartToken()
         Task {
             do {
@@ -145,6 +146,7 @@ enum NudgeNotifications {
 
     @MainActor
     static func registerForRemoteNotifications() {
+        guard !AppSettings.shared.usesLocalTestData else { return }
         UIApplication.shared.registerForRemoteNotifications()
     }
 
@@ -166,6 +168,7 @@ enum NudgeNotifications {
 
     static func syncRegistrationAndSettings() async {
         let settings = AppSettings.shared
+        guard !settings.usesLocalTestData else { return }
         do {
             if let token = UserDefaults.standard.string(forKey: deviceTokenKey), !token.isEmpty {
                 try await TrackerAPIClient.shared.registerNudgeDevice(NudgeDeviceRequest(

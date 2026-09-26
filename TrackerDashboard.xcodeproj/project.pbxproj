@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EA2000000000000000000001 /* LocalTestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1000000000000000000001 /* LocalTestStore.swift */; };
+		EA2000000000000000000002 /* LocalTestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1000000000000000000001 /* LocalTestStore.swift */; };
+		EA2000000000000000000003 /* LocalTestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1000000000000000000001 /* LocalTestStore.swift */; };
+		EA2000000000000000000004 /* LocalTestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1000000000000000000001 /* LocalTestStore.swift */; };
 		A20000000000000000000001 /* TrackerDashboardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* TrackerDashboardApp.swift */; };
 		A20000000000000000000002 /* TrackerAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* TrackerAPIClient.swift */; };
 		A20000000000000000000003 /* SyncController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* SyncController.swift */; };
@@ -199,6 +203,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		EA1000000000000000000001 /* LocalTestStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTestStore.swift; sourceTree = "<group>"; };
 		A10000000000000000000001 /* TrackerDashboardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerDashboardApp.swift; sourceTree = "<group>"; };
 		A10000000000000000000002 /* TrackerAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerAPIClient.swift; sourceTree = "<group>"; };
 		A10000000000000000000003 /* SyncController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncController.swift; sourceTree = "<group>"; };
@@ -363,6 +368,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000002 /* TrackerAPIClient.swift */,
+				EA1000000000000000000001 /* LocalTestStore.swift */,
 				E10000000000000000000002 /* MediaAPIClient.swift */,
 			);
 			path = Networking;
@@ -639,6 +645,7 @@
 			files = (
 				A20000000000000000000001 /* TrackerDashboardApp.swift in Sources */,
 				A20000000000000000000002 /* TrackerAPIClient.swift in Sources */,
+				EA2000000000000000000001 /* LocalTestStore.swift in Sources */,
 				A20000000000000000000003 /* SyncController.swift in Sources */,
 				A20000000000000000000004 /* TodayViewModel.swift in Sources */,
 				A20000000000000000000005 /* TaskStatus.swift in Sources */,
@@ -686,6 +693,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A30000000000000000000001 /* TrackerAPIClient.swift in Sources */,
+				EA2000000000000000000002 /* LocalTestStore.swift in Sources */,
 				A30000000000000000000002 /* TaskStatus.swift in Sources */,
 				A30000000000000000000003 /* ScheduleItem.swift in Sources */,
 				A30000000000000000000004 /* CaffeineEntry.swift in Sources */,
@@ -720,6 +728,7 @@
 				B20000000000000000000001 /* TrackerDashboardMacApp.swift in Sources */,
 				B20000000000000000000002 /* MacRootView.swift in Sources */,
 				B20000000000000000000003 /* TrackerAPIClient.swift in Sources */,
+				EA2000000000000000000003 /* LocalTestStore.swift in Sources */,
 				B20000000000000000000004 /* SyncController.swift in Sources */,
 				B20000000000000000000005 /* TodayViewModel.swift in Sources */,
 				B20000000000000000000006 /* TaskStatus.swift in Sources */,
@@ -765,6 +774,7 @@
 				W20000000000000000000004 /* WatchTaskDetailView.swift in Sources */,
 				W20000000000000000000012 /* WatchSettingsView.swift in Sources */,
 				W20000000000000000000005 /* TrackerAPIClient.swift in Sources */,
+				EA2000000000000000000004 /* LocalTestStore.swift in Sources */,
 				W20000000000000000000006 /* TaskStatus.swift in Sources */,
 				W20000000000000000000007 /* ScheduleItem.swift in Sources */,
 				W20000000000000000000008 /* CaffeineEntry.swift in Sources */,
@@ -884,7 +894,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = TrackerDashboard/TrackerDashboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = Y6786ATMVK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -911,7 +921,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = TrackerDashboard/TrackerDashboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = Y6786ATMVK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -937,7 +947,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = TrackerDashboardWidgets/TrackerDashboardWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = Y6786ATMVK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -967,7 +977,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = TrackerDashboardWidgets/TrackerDashboardWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = Y6786ATMVK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;

@@ -55,6 +55,7 @@ final class SyncController {
     }
 
     func refreshHealthSleep() async {
+        guard !AppSettings.shared.usesLocalTestData else { return }
 #if os(iOS)
         do {
             try await HealthKitSleepStore.shared.requestAuthorization()
@@ -71,6 +72,7 @@ final class SyncController {
     }
 
     func importHealthWorkouts(date: String = Date.trackerDateFormatter.string(from: Date())) async -> Bool {
+        guard !AppSettings.shared.usesLocalTestData else { return false }
 #if os(iOS)
         do {
             try await HealthKitWorkoutStore.shared.requestAuthorization()

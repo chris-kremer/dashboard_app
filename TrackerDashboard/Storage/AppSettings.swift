@@ -4,6 +4,10 @@ import Observation
 @Observable
 final class AppSettings {
     static let shared = AppSettings()
+    // Shared with the widget extension. A fresh install never connects to the
+    // owner's backend merely because its URL is bundled with the app.
+    static let testDataModeKey = "usesLocalTestData"
+    let usesLocalTestData: Bool
     private static let defaultMediaAPIBaseURL = "http://MacBook-Air-7.local:8000"
     private static let legacyMediaAPIBaseURLs = [
         "http://10.221.81.199:8000"
@@ -44,8 +48,19 @@ final class AppSettings {
 
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard,
+         sharedDefaults: UserDefaults? = UserDefaults(suiteName: SharedCache.appGroupIdentifier),
+         existingToken: () -> String? = { KeychainStore.shared.token() }) {
         self.defaults = defaults
+        let sharedDefaults = sharedDefaults ?? defaults
+        // Preserve previously configured accounts even if Keychain is temporarily
+        // unavailable (for example, a widget waking before the first unlock).
+        let hasExistingAccount = !(existingToken()?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+            || defaults.object(forKey: Keys.apiBaseURL) != nil
+        let usesTestData = sharedDefaults.object(forKey: Self.testDataModeKey) as? Bool
+            ?? !hasExistingAccount
+        self.usesLocalTestData = usesTestData
+        sharedDefaults.set(usesTestData, forKey: Self.testDataModeKey)
         self.apiBaseURL = defaults.string(forKey: Keys.apiBaseURL) ?? "https://tracker-dashboard-worker.chriskremer-tracker.workers.dev"
         self.spreadsheetID = defaults.string(forKey: Keys.spreadsheetID) ?? "1U2EANvtDL1X2gOTcJInN84jSwrPPeddwjKiuFrt2Mtg"
         let savedMediaURL = defaults.string(forKey: Keys.mediaAPIBaseURL)

@@ -5,10 +5,15 @@ actor TrackerAPIClient {
 
     private let session: URLSession
     private let settings: AppSettings
+    private let testStore: LocalTestStore
+    private let usesTestData: Bool
 
-    init(session: URLSession = .shared, settings: AppSettings = .shared) {
+    init(session: URLSession = .shared, settings: AppSettings = .shared,
+         testStore: LocalTestStore = .shared, usesTestData: Bool? = nil) {
         self.session = session
         self.settings = settings
+        self.testStore = testStore
+        self.usesTestData = usesTestData ?? settings.usesLocalTestData
     }
 
     func fetchSnapshot(date: String = Date.trackerDateFormatter.string(from: Date())) async throws -> TrackerSnapshot {
@@ -91,6 +96,11 @@ actor TrackerAPIClient {
     }
 
     private func send<Response: Decodable>(_ request: URLRequest, responseType: Response.Type) async throws -> Response {
+        // This guard covers every endpoint, including APNs registration. Never
+        // fall back to the network when an isolated test operation fails.
+        if usesTestData {
+            return try TrackerJSON.decoder.decode(Response.self, from: testStore.respond(to: request))
+        }
         var request = request
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let token = settings.apiToken.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -110,6 +120,7 @@ actor TrackerAPIClient {
     }
 
     private func baseURL() throws -> URL {
+        if usesTestData { return URL(string: "https://local-test.invalid")! }
         guard let url = URL(string: settings.apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
               ["http", "https"].contains(url.scheme?.lowercased()) else {
             throw APIError.invalidURL

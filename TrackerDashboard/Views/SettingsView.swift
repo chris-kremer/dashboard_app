@@ -10,6 +10,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if settings.usesLocalTestData {
+                    Section("Private test dataset") {
+                        Text("Your tasks, meals, caffeine, and sleep logs are saved only on this device. The sample tasks are fictional and can be edited or deleted.")
+                        Text("No account is required. This mode never connects to the owner's Google Sheet. Health import, browser tracking, and cloud nudges are unavailable.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Section("Refresh") {
                     Stepper("Every \(settings.refreshIntervalMinutes) minutes", value: $settings.refreshIntervalMinutes, in: 5...240, step: 5)
                     Button("Force refresh") {
@@ -88,17 +95,22 @@ struct SettingsView: View {
                 } header: {
                     Text("Watch Nudges")
                 } footer: {
-                    Text("Notifications normally tap your Apple Watch when it is worn and your iPhone is locked.")
+                    Text(settings.usesLocalTestData
+                        ? "Cloud nudges are unavailable in the isolated test dataset."
+                        : "Notifications normally tap your Apple Watch when it is worn and your iPhone is locked.")
                 }
+                .disabled(settings.usesLocalTestData)
 
-                Section {
-                    NavigationLink {
-                        AdvancedSettingsView(settings: settings)
-                    } label: {
-                        Label("Advanced", systemImage: "slider.horizontal.3")
+                if !settings.usesLocalTestData {
+                    Section {
+                        NavigationLink {
+                            AdvancedSettingsView(settings: settings)
+                        } label: {
+                            Label("Advanced", systemImage: "slider.horizontal.3")
+                        }
+                    } footer: {
+                        Text("API, token, and spreadsheet configuration.")
                     }
-                } footer: {
-                    Text("API, token, and spreadsheet configuration.")
                 }
             }
             .navigationTitle("Settings")

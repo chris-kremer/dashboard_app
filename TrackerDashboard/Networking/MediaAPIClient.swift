@@ -32,6 +32,9 @@ actor MediaAPIClient {
     }
 
     private func send<Response: Decodable>(url: URL, responseType: Response.Type) async throws -> Response {
+        guard !settings.usesLocalTestData else {
+            throw APIError.httpStatus(503, "Browser tracking is unavailable with local test data.")
+        }
         var request = URLRequest(url: url)
         request.timeoutInterval = 8
         request.setValue("application/json", forHTTPHeaderField: "Accept")

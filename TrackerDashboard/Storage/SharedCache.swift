@@ -89,6 +89,8 @@ final class SharedCache {
     }
 
     private func fileURL(_ fileName: String) -> URL? {
+        // Keep test caches and pending writes separate from connected accounts.
+        let fileName = AppSettings.shared.usesLocalTestData ? "test-\(fileName)" : fileName
         if let appGroupURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupIdentifier) {
             return appGroupURL.appendingPathComponent(fileName)
         }

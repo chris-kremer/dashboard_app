@@ -28,6 +28,15 @@ struct RootView: View {
                 .tag(TrackerSection.settings)
         }
         .environment(navigation)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if AppSettings.shared.usesLocalTestData {
+                Label("Test data · saved only on this device", systemImage: "testtube.2")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial)
+            }
+        }
         .overlay(alignment: .top) {
             VStack(spacing: 10) {
                 if let celebration {

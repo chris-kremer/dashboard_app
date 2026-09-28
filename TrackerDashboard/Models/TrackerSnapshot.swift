@@ -121,7 +121,8 @@ enum TrackerTime {
 extension ScheduleItem {
     var isFreeTimeCategory: Bool {
         let value = category.lowercased().replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ").trimmingCharacters(in: .whitespaces)
-        return value == "x" || value == "break" || ["free time", "social media", "youtube", "twitter", "entertainment", "leisure"].contains { value.contains($0) }
+        // Keep legacy category names compatible with existing Sheet rows.
+        return value == "media" || value == "x" || value == "break" || ["free time", "social media", "youtube", "twitter", "entertainment", "leisure"].contains { value.contains($0) }
     }
 }
 

@@ -55,7 +55,7 @@ struct SettingsView: View {
                     } label: {
                         Label("Nudge effectiveness", systemImage: "bell.and.waves.left.and.right")
                     }
-                    Toggle("Nudge during free time", isOn: $settings.nudgesEnabled)
+                    Toggle("Nudge during media use", isOn: $settings.nudgesEnabled)
                     LabeledContent("First nudge", value: "Immediately")
                     LabeledContent("Repeat", value: "Randomly, about every 2 minutes")
                     Button("Save nudge settings") {

@@ -67,7 +67,8 @@ describe("watch nudge variation", () => {
     expect(hasProductiveTaskInProgress(snapshot([
       task({ rowNumber: 2, category: "Free Time" }),
       task({ rowNumber: 3, category: "Social_Media" }),
-      task({ rowNumber: 4, category: "YouTube" })
+      task({ rowNumber: 4, category: "YouTube" }),
+      task({ rowNumber: 5, category: " Media " })
     ]))).toBe(false);
   });
 
@@ -91,6 +92,16 @@ describe("watch nudge variation", () => {
 
     expect(alert.title).toBe("Caught you on YouTube");
     expect(alert.body).not.toContain("already spent");
+  });
+
+  it("uses media branding in reminders and the personalized prompt", () => {
+    expect(personalizedNudgeSystemPrompt()).toContain("daily media total");
+    for (let index = 0; index < 100; index += 1) {
+      const random = () => index / 100;
+      for (const alert of [initialAlert("YouTube", 2, 25, random), followUpAlert("X", 4, random, 25)]) {
+        expect(`${alert.title} ${alert.body}`).not.toMatch(/free[ -]time/i);
+      }
+    }
   });
 
   it("includes cumulative daily time in repeat-session messages", () => {

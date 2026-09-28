@@ -44,9 +44,9 @@ final class MediaSyncController {
 
         if case .failure(let error) = sessions {
             if snapshot.fetchedAt == .distantPast {
-                lastError = "Tracked free time unavailable right now (\(friendlyMessage(for: error)))."
+                lastError = "Tracked media unavailable right now (\(friendlyMessage(for: error)))."
             } else {
-                lastError = "Tracked free time unavailable right now; showing cached data from \(snapshot.fetchedAt.formatted(date: .abbreviated, time: .shortened))."
+                lastError = "Tracked media unavailable right now; showing cached data from \(snapshot.fetchedAt.formatted(date: .abbreviated, time: .shortened))."
             }
         } else if case .failure(let error) = history {
             lastError = "Nudge history unavailable right now (\(friendlyMessage(for: error)))."

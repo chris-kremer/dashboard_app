@@ -216,7 +216,7 @@ struct TodayView: View {
                 HStack {
                     legend("Productive", TrackerStyle.accent)
                     legend("Other & sleep", TrackerStyle.life)
-                    legend("Free time", TrackerStyle.freeTime)
+                    legend("Media", TrackerStyle.freeTime)
                     legend("Unlogged", .secondary.opacity(0.3))
                 }.font(.caption2).foregroundStyle(.secondary)
             }

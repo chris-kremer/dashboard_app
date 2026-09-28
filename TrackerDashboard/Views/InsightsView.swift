@@ -5,7 +5,7 @@ enum InsightsSection {
     var title: String {
         switch self {
         case .overview: "Insights"
-        case .freeTime: "Free time"
+        case .freeTime: "Media"
         case .nudges: "Nudge effectiveness"
         case .logs: "Daily logs"
         }
@@ -223,7 +223,7 @@ struct InsightsView: View {
                     }.background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 20))
                 }.buttonStyle(.plain)
                 NavigationLink { InsightsView(section: .freeTime) } label: {
-                    TrackerDisclosure(title: "Free time", detail: "YouTube, X & recent sessions")
+                    TrackerDisclosure(title: "Media", detail: "YouTube, X & recent sessions")
                 }.buttonStyle(.plain)
                 NavigationLink { InsightsView(section: .logs) } label: {
                     TrackerDisclosure(title: "Daily logs", detail: "Meals, caffeine & sleep")
@@ -366,12 +366,12 @@ struct InsightsView: View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Text("Total tracked free time").font(.caption).foregroundStyle(.secondary)
+                    Text("Total tracked media time").font(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Button { Task { await mediaSync.refresh(date: sync.snapshot.date) } } label: {
                         Image(systemName: "arrow.clockwise").frame(width: 44, height: 44)
                     }
-                    .accessibilityLabel("Refresh free time")
+                    .accessibilityLabel("Refresh media")
                 }
                 Text(minutesLabel(trackedFreeTimeMinutes)).font(.largeTitle.weight(.medium)).monospacedDigit()
                 if mediaSync.snapshot.sessions != nil {
@@ -392,11 +392,11 @@ struct InsightsView: View {
                 if !recentMediaSessions.isEmpty { mediaRecentActivity }
             }
             if trackedFreeTimeEntries.isEmpty {
-                Text("No tracked free time for this date.").font(.subheadline).foregroundStyle(.secondary)
+                Text("No tracked media for this date.").font(.subheadline).foregroundStyle(.secondary)
             }
             let manualEntries = sync.snapshot.freeTime ?? []
             if !manualEntries.isEmpty {
-                Text("Other free-time entries").font(.headline)
+                Text("Other media entries").font(.headline)
                 ForEach(manualEntries) { entry in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {

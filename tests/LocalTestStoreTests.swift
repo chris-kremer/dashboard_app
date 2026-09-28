@@ -83,6 +83,9 @@ struct LocalTestStoreTests {
         let endOfDay = Date.trackerDateFormatter.date(from: date)!.addingTimeInterval(23 * 3600)
         check(metrics.productiveMinutes(now: endOfDay) == 35, "Actual productive intervals union; paused work included; free time excluded")
         check(metrics.finishedTaskCount == 3, "Paused intervals do not count as finished tasks")
+        leisure.category = " Media "
+        metrics.schedule = [done, overlapping, pausedInterval, leisure]
+        check(metrics.productiveMinutes(now: endOfDay) == 35, "Media branding retains legacy free-time accounting")
         var unstarted = done
         unstarted.start = nil
         unstarted.stop = nil

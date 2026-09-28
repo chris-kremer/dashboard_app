@@ -169,7 +169,7 @@ private struct TimelineScaleView: View {
     let onSelectTask: (ScheduleItem) -> Void
     let onSelectGap: () -> Void
     @State private var selectedID: String?
-    private let lanes = ["Sleep", "Tasks", "Life", "Free", "Gaps"]
+    private let lanes = ["Sleep", "Tasks", "Life", "Media", "Gaps"]
 
     private var selected: TimelineEntry? {
         entries.first { $0.id == selectedID } ?? entries.last { $0.kind.lane != "Gaps" } ?? entries.first
@@ -416,7 +416,7 @@ private struct TimelineEntry: Identifiable {
         return TimelineEntry(
             id: item.id,
             title: item.label,
-            subtitle: "Free time",
+            subtitle: "Media",
             startMinute: start,
             endMinute: min(max(end ?? fallbackEnd, start + 1), 24 * 60),
             priorityLevel: -1,
@@ -440,7 +440,7 @@ private struct TimelineEntry: Identifiable {
                 sessions[sessions.count - 1] = TimelineEntry(
                     id: "\(previous.id)+\(entry.id)",
                     title: combinedFreeTimeTitle(previous.title, entry.title),
-                    subtitle: "Free time",
+                    subtitle: "Media",
                     startMinute: min(previous.startMinute, entry.startMinute),
                     endMinute: max(previous.endMinute, entry.endMinute),
                     priorityLevel: -1,
@@ -502,7 +502,7 @@ private struct TimelineEntry: Identifiable {
         var lane: String {
             switch self {
             case .sleep: "Sleep"
-            case .freeTime, .mediaFreeTime: "Free"
+            case .freeTime, .mediaFreeTime: "Media"
             case .caffeine, .food: "Life"
             case .gap: "Gaps"
             case .schedule: "Tasks"

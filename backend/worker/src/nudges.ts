@@ -985,7 +985,8 @@ function isProductiveTaskInProgress(task: ScheduleItem): boolean {
 
 function isFreeTimeCategory(category: string): boolean {
   const normalized = category.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
-  return normalized === "x"
+  return normalized === "media"
+    || normalized === "x"
     || normalized.includes("free time")
     || normalized.includes("social media")
     || normalized.includes("youtube")
@@ -1063,7 +1064,8 @@ export function personalizedNudgeSystemPrompt(): string {
     "Return JSON only in the requested schema.",
     "Each title must be at most 45 characters and each body at most 150 characters.",
     "Use a direct, specific, mildly judgmental tone, but never insult, shame, threaten, diagnose, or mention addiction.",
-    "Vary the angles: current content, time since waking, daily free-time total, repeat sessions, and one concrete open task.",
+    "Vary the angles: current content, time since waking, daily media total, repeat sessions, and one concrete open task.",
+    "Call tracked YouTube and X usage 'media' or 'media time', not 'free time'. The legacy dailyFreeTimeMinutes field means media minutes, not all recreation.",
     "Return an angle for every message: morning, task, daily_total, content, repeat, or generic.",
     "When morningMode is true, favor a small concrete task and the fact that the day has just started; never claim it is morning otherwise.",
     "Match the requested escalation: calm is direct but restrained, firm is pointed, blunt is sharper without abuse, encouraging acknowledges prior successful closes.",
@@ -1302,7 +1304,7 @@ export function followUpAlert(
     },
     {
       title: `${dailyTotalMinutes} minutes today`,
-      body: `That's your total free-time scrolling today. Close ${sourceName} and do something deliberate.`
+      body: `That's your total media time today. Close ${sourceName} and do something deliberate.`
     },
     {
       title: "The total keeps climbing",
@@ -1314,7 +1316,7 @@ export function followUpAlert(
     },
     {
       title: "Again?",
-      body: `${dailyTotalMinutes} minutes of your day have already gone to free-time apps. Leave ${sourceName}.`
+      body: `${dailyTotalMinutes} minutes of your day have already gone to media apps. Leave ${sourceName}.`
     }
   ];
   const index = Math.min(messages.length - 1, Math.floor(random() * messages.length));
@@ -1355,11 +1357,11 @@ export function initialAlert(
   const repeatSessionMessages = [
     {
       title: `You're on ${sourceName} again`,
-      body: `You've already spent ${dailyTotalMinutes} minutes on free-time apps today. Close it and do something productive.`
+      body: `You've already spent ${dailyTotalMinutes} minutes on media apps today. Close it and do something productive.`
     },
     {
       title: "Back again?",
-      body: `This is free-time session ${previousSessionCount + 1} today. Don't let ${sourceName} take another block of your day.`
+      body: `This is media session ${previousSessionCount + 1} today. Don't let ${sourceName} take another block of your day.`
     },
     {
       title: `${dailyTotalMinutes} minutes already`,

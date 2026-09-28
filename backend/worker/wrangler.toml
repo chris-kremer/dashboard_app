@@ -21,6 +21,14 @@ class_name = "NudgeCoordinator"
 tag = "v1-nudge-coordinator"
 new_sqlite_classes = ["NudgeCoordinator"]
 
+[[durable_objects.bindings]]
+name = "PROJECT_COORDINATOR"
+class_name = "ProjectCoordinator"
+
+[[migrations]]
+tag = "v2-project-coordinator"
+new_sqlite_classes = ["ProjectCoordinator"]
+
 # Required secrets:
 # wrangler secret put APP_API_TOKEN
 # wrangler secret put ADDON_API_TOKEN

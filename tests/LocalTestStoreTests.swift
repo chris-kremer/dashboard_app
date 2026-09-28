@@ -46,6 +46,9 @@ struct LocalTestStoreTests {
         let date = Date.trackerDateFormatter.string(from: Date())
         let initial = try await api.fetchSnapshot(date: date)
         check(initial.openTasks.count == 3, "New dataset seeds three fictional tasks")
+        let projectAPI = TrackerAPIClient(session: session, settings: settings,
+            testStore: LocalTestStore(directory: directory.appendingPathComponent("projects")))
+        try await testProjects(api: projectAPI, today: date)
         check(TrackerTime.unionMinutes([60..<120, 90..<150, 150..<180]) == 120, "Overlaps count only once")
         check(TrackerTime.unionMinutes([]) == 0, "Empty union")
         check(TrackerTime.laneAssignments([0..<60, 30..<90, 60..<120]) == [0, 1, 0], "Overlaps have separate lanes; adjacent intervals reuse lanes")
@@ -139,5 +142,53 @@ struct LocalTestStoreTests {
         do { _ = try await remote.fetchSnapshot(); fatalError("Stub should reject network") } catch {}
         check(RejectNetwork.count == 1, "Connected-account transport remains unchanged")
         print("PASS: isolated transport, persistence, task lifecycle, date filtering, autocomplete, concurrent writes, and account separation")
+    }
+
+    static func testProjects(api: TrackerAPIClient, today: String) async throws {
+        var catalog = try await api.fetchProjects()
+        let project = TrackerProject(name: "Research paper", category: "Work")
+        let group = ProjectGroup(projectId: project.id, name: "Introduction")
+        let nested = ProjectGroup(projectId: project.id, parentId: group.id, name: "Sources")
+        catalog.projects.append(project); catalog.groups = [group, nested]
+        catalog = try await api.saveProjects(catalog)
+        let yesterday = Date.trackerDateFormatter.string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+        let tomorrow = Date.trackerDateFormatter.string(from: Calendar.current.date(byAdding: .day, value: 1, to: Date())!)
+        let original = try await api.createTask(CreateTaskRequest(date: yesterday, task: "Project identity test", category: "Work", priority: 4, estimateMinutes: 20))
+        catalog = try await api.linkProjectTasks(ProjectLinkRequest(revision: catalog.revision, rows: [ProjectRowReference(original)], projectId: project.id, groupId: nested.id))
+        check(catalog.missingTasks(projectId: project.id, on: today).count == 1, "Missing historical task asks for clarification")
+        catalog = try await api.resolveProjectTask(ProjectResolutionRequest(revision: catalog.revision, taskId: original.taskId!, action: "keep"))
+        check(catalog.activeTasks(projectId: project.id, on: today).count == 1, "Keep restores today, not a second project task")
+        check(catalog.schedule.first { $0.rowNumber == original.rowNumber }?.status == .open, "Keep does not rewrite yesterday")
+        let current = catalog.activeTasks(projectId: project.id, on: today)[0]
+        check(catalog.path(for: current) == "Research paper › Introduction › Sources", "Deep group path preserved on restore")
+        _ = try await api.createTask(CreateTaskRequest(date: tomorrow, task: current.task, category: current.category, priority: 4, estimateMinutes: 20, taskId: current.taskId))
+        catalog = try await api.fetchProjects()
+        check(catalog.activeTasks(projectId: project.id, on: today).count == 1, "Current and future copies count once")
+        _ = try await api.completeTask(rowNumber: current.rowNumber, source: "test")
+        catalog = try await api.fetchProjects()
+        check(catalog.nextTask(projectId: project.id, on: today) == nil, "Finished current task no longer drives urgency")
+        check(catalog.isComplete(project.id, on: today), "Latest current status overrides historical open copies")
+        let separate = try await api.createTask(CreateTaskRequest(date: today, task: current.task, category: "Work", priority: 1, estimateMinutes: 10))
+        check(separate.taskId != current.taskId, "Identical names do not merge identities")
+        catalog = try await api.linkProjectTasks(ProjectLinkRequest(revision: catalog.revision, rows: [ProjectRowReference(separate)], projectId: project.id, groupId: nil))
+        check(!catalog.isComplete(project.id, on: today), "New task reopens completion eligibility")
+        var stale = catalog; stale.revision -= 1
+        do { _ = try await api.saveProjects(stale); preconditionFailure("Stale save accepted") }
+        catch APIError.httpStatus(let status, _) { check(status == 409, "Concurrent edits cannot overwrite metadata") }
+        _ = try await api.completeTask(rowNumber: separate.rowNumber, source: "test")
+        let future = try await api.createTask(CreateTaskRequest(date: tomorrow, task: "Future project test", category: "Work", priority: 10, estimateMinutes: 15))
+        catalog = try await api.fetchProjects()
+        catalog = try await api.linkProjectTasks(ProjectLinkRequest(revision: catalog.revision, rows: [ProjectRowReference(future)], projectId: project.id, groupId: nil))
+        check(catalog.nextTask(projectId: project.id, on: today) == nil, "Future tasks never drive today’s priority")
+        check(!catalog.isComplete(project.id, on: today), "Future work prevents premature closure")
+        catalog.projects[0].closed = true
+        catalog = try await api.saveProjects(catalog)
+        check(catalog.projects[0].closed && !catalog.memberships.isEmpty, "Project closure retains history and membership")
+        let standalone = try await api.createTask(CreateTaskRequest(date: today, task: "Standalone checklist", category: "Personal", priority: 1, estimateMinutes: 5))
+        catalog = try await api.linkProjectTasks(ProjectLinkRequest(revision: catalog.revision, rows: [ProjectRowReference(standalone)], projectId: nil, groupId: nil))
+        let standaloneIndex = catalog.memberships.firstIndex { $0.taskId == standalone.taskId }!
+        catalog.memberships[standaloneIndex].checklist = [ProjectChecklistItem(title: "Small step")]
+        catalog = try await api.saveProjects(catalog)
+        check(catalog.membership(for: standalone)?.checklist?.first?.title == "Small step", "Standalone task checklists persist without requiring projects")
     }
 }

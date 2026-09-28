@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
+    @Environment(SyncController.self) private var sync
     @State private var navigation = AppNavigation()
     @State private var celebration: RewardCelebration?
     @State private var saveConfirmation: SaveConfirmation?
@@ -54,19 +55,22 @@ struct RootView: View {
                         VStack(spacing: 4) {
                             Image(systemName: section.systemImage).font(.system(size: 19))
                             Text(section.title).font(.caption2)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.center)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, minHeight: 50)
                         .foregroundStyle(navigation.selectedSection == section ? TrackerStyle.accent : .secondary)
-                        .background(navigation.selectedSection == section ? TrackerStyle.soft : .clear, in: Capsule())
-                        .contentShape(Capsule())
+                        .background(navigation.selectedSection == section ? TrackerStyle.soft : .clear, in: RoundedRectangle(cornerRadius: 18))
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(navigation.selectedSection == section ? .isSelected : [])
                 }
             }
             .padding(5)
-            .background(TrackerStyle.surface, in: Capsule())
-            .padding(.horizontal, 16)
+            .background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 24))
+            .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(TrackerStyle.background)
 #endif
@@ -74,6 +78,18 @@ struct RootView: View {
         .environment(navigation)
         .tint(TrackerStyle.accent)
         .background(TrackerStyle.background)
+        .alert("All tasks done", isPresented: Binding(get: { sync.projectToClose != nil }, set: { if !$0 { sync.projectToClose = nil } })) {
+            Button("Close project") {
+                guard let project = sync.projectToClose else { return }
+                var catalog = sync.projectCatalog
+                if let index = catalog.projects.firstIndex(where: { $0.id == project.id }) { catalog.projects[index].closed = true }
+                sync.projectToClose = nil
+                Task { _ = await sync.saveProjects(catalog) }
+            }
+            Button("Keep open", role: .cancel) { sync.projectToClose = nil }
+        } message: {
+            Text("Close \(sync.projectToClose?.name ?? "this project")? Its tasks and history will remain available.")
+        }
         .overlay(alignment: .top) {
             VStack(spacing: 10) {
                 if let celebration {

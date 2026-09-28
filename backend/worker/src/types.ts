@@ -4,6 +4,7 @@ export interface Env {
   GOOGLE_SERVICE_ACCOUNT_JSON: string;
   SPREADSHEET_ID: string;
   NUDGE_COORDINATOR: DurableObjectNamespace;
+  PROJECT_COORDINATOR: DurableObjectNamespace;
   AI?: Ai;
   APNS_KEY_ID?: string;
   APNS_TEAM_ID?: string;
@@ -34,6 +35,7 @@ export interface ScheduleItem {
   source?: string;
   sourceId?: string;
   importedAt?: string;
+  taskId?: string;
 }
 
 export interface CaffeineEntry {

@@ -27,6 +27,24 @@ actor TrackerAPIClient {
         try await sendJSON(request, method: "POST", path: "tasks", responseType: ScheduleItem.self)
     }
 
+    func fetchProjects() async throws -> ProjectCatalog {
+        try await send(URLRequest(url: try baseURL().appendingPathComponent("projects")), responseType: ProjectCatalog.self)
+    }
+
+    func saveProjects(_ catalog: ProjectCatalog) async throws -> ProjectCatalog {
+        var metadata = catalog
+        metadata.schedule = []
+        return try await sendJSON(metadata, method: "PUT", path: "projects", responseType: ProjectCatalog.self)
+    }
+
+    func linkProjectTasks(_ request: ProjectLinkRequest) async throws -> ProjectCatalog {
+        try await sendJSON(request, method: "POST", path: "projects/link", responseType: ProjectCatalog.self)
+    }
+
+    func resolveProjectTask(_ request: ProjectResolutionRequest) async throws -> ProjectCatalog {
+        try await sendJSON(request, method: "POST", path: "projects/resolve", responseType: ProjectCatalog.self)
+    }
+
     func updateTask(rowNumber: Int, patch: TaskPatchRequest) async throws -> ScheduleItem {
         try await sendJSON(patch, method: "PATCH", path: "tasks/\(rowNumber)", responseType: ScheduleItem.self)
     }

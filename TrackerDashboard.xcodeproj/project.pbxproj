@@ -17,6 +17,7 @@
 		A20000000000000000000004 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* TodayViewModel.swift */; };
 		A20000000000000000000005 /* TaskStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TaskStatus.swift */; };
 		A20000000000000000000006 /* ScheduleItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* ScheduleItem.swift */; };
+		FA2000000000000000000001 /* ProjectCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000001 /* ProjectCatalog.swift */; };
 		A20000000000000000000007 /* CaffeineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CaffeineEntry.swift */; };
 		A20000000000000000000008 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
 		A20000000000000000000009 /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
@@ -31,6 +32,7 @@
 		A20000000000000000000012 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* SharedViews.swift */; };
 		A20000000000000000000013 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* TodayView.swift */; };
 		A20000000000000000000014 /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* TasksView.swift */; };
+		FA2000000000000000000005 /* ProjectsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000002 /* ProjectsView.swift */; };
 		A20000000000000000000015 /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* TaskRowView.swift */; };
 		A20000000000000000000016 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* TimelineView.swift */; };
 		A20000000000000000000017 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* InsightsView.swift */; };
@@ -50,6 +52,7 @@
 		A30000000000000000000001 /* TrackerAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* TrackerAPIClient.swift */; };
 		A30000000000000000000002 /* TaskStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TaskStatus.swift */; };
 		A30000000000000000000003 /* ScheduleItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* ScheduleItem.swift */; };
+		FA2000000000000000000002 /* ProjectCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000001 /* ProjectCatalog.swift */; };
 		A30000000000000000000004 /* CaffeineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CaffeineEntry.swift */; };
 		A30000000000000000000005 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
 		A30000000000000000000006 /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
@@ -78,6 +81,7 @@
 		B20000000000000000000005 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* TodayViewModel.swift */; };
 		B20000000000000000000006 /* TaskStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TaskStatus.swift */; };
 		B20000000000000000000007 /* ScheduleItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* ScheduleItem.swift */; };
+		FA2000000000000000000003 /* ProjectCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000001 /* ProjectCatalog.swift */; };
 		B20000000000000000000008 /* CaffeineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CaffeineEntry.swift */; };
 		B20000000000000000000009 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
 		B2000000000000000000000A /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
@@ -92,6 +96,7 @@
 		B20000000000000000000013 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* SharedViews.swift */; };
 		B20000000000000000000014 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* TodayView.swift */; };
 		B20000000000000000000015 /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* TasksView.swift */; };
+		FA2000000000000000000006 /* ProjectsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000002 /* ProjectsView.swift */; };
 		B20000000000000000000016 /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* TaskRowView.swift */; };
 		B20000000000000000000017 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* TimelineView.swift */; };
 		B20000000000000000000018 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* InsightsView.swift */; };
@@ -125,6 +130,7 @@
 		W20000000000000000000005 /* TrackerAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* TrackerAPIClient.swift */; };
 		W20000000000000000000006 /* TaskStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TaskStatus.swift */; };
 		W20000000000000000000007 /* ScheduleItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* ScheduleItem.swift */; };
+		FA2000000000000000000004 /* ProjectCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000001 /* ProjectCatalog.swift */; };
 		W20000000000000000000008 /* CaffeineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CaffeineEntry.swift */; };
 		W20000000000000000000009 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* FoodEntry.swift */; };
 		W2000000000000000000000A /* SleepEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* SleepEntry.swift */; };
@@ -210,6 +216,7 @@
 		A10000000000000000000004 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		A10000000000000000000005 /* TaskStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskStatus.swift; sourceTree = "<group>"; };
 		A10000000000000000000006 /* ScheduleItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleItem.swift; sourceTree = "<group>"; };
+		FA1000000000000000000001 /* ProjectCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectCatalog.swift; sourceTree = "<group>"; };
 		A10000000000000000000007 /* CaffeineEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaffeineEntry.swift; sourceTree = "<group>"; };
 		A10000000000000000000008 /* FoodEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodEntry.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* SleepEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepEntry.swift; sourceTree = "<group>"; };
@@ -224,6 +231,7 @@
 		A10000000000000000000012 /* SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedViews.swift; sourceTree = "<group>"; };
 		A10000000000000000000013 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		A10000000000000000000014 /* TasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksView.swift; sourceTree = "<group>"; };
+		FA1000000000000000000002 /* ProjectsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsView.swift; sourceTree = "<group>"; };
 		A10000000000000000000015 /* TaskRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRowView.swift; sourceTree = "<group>"; };
 		A10000000000000000000016 /* TimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineView.swift; sourceTree = "<group>"; };
 		A10000000000000000000017 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
@@ -351,6 +359,7 @@
 			children = (
 				A10000000000000000000005 /* TaskStatus.swift */,
 				A10000000000000000000006 /* ScheduleItem.swift */,
+				FA1000000000000000000001 /* ProjectCatalog.swift */,
 				A10000000000000000000007 /* CaffeineEntry.swift */,
 				A10000000000000000000008 /* FoodEntry.swift */,
 				A10000000000000000000009 /* SleepEntry.swift */,
@@ -402,6 +411,7 @@
 				A10000000000000000000012 /* SharedViews.swift */,
 				A10000000000000000000013 /* TodayView.swift */,
 				A10000000000000000000014 /* TasksView.swift */,
+				FA1000000000000000000002 /* ProjectsView.swift */,
 				A10000000000000000000015 /* TaskRowView.swift */,
 				A10000000000000000000016 /* TimelineView.swift */,
 				A10000000000000000000017 /* InsightsView.swift */,
@@ -650,6 +660,7 @@
 				A20000000000000000000004 /* TodayViewModel.swift in Sources */,
 				A20000000000000000000005 /* TaskStatus.swift in Sources */,
 				A20000000000000000000006 /* ScheduleItem.swift in Sources */,
+				FA2000000000000000000001 /* ProjectCatalog.swift in Sources */,
 				A20000000000000000000007 /* CaffeineEntry.swift in Sources */,
 				A20000000000000000000008 /* FoodEntry.swift in Sources */,
 				A20000000000000000000009 /* SleepEntry.swift in Sources */,
@@ -671,6 +682,7 @@
 				A20000000000000000000012 /* SharedViews.swift in Sources */,
 				A20000000000000000000013 /* TodayView.swift in Sources */,
 				A20000000000000000000014 /* TasksView.swift in Sources */,
+				FA2000000000000000000005 /* ProjectsView.swift in Sources */,
 				A20000000000000000000015 /* TaskRowView.swift in Sources */,
 				A20000000000000000000016 /* TimelineView.swift in Sources */,
 				A20000000000000000000017 /* InsightsView.swift in Sources */,
@@ -696,6 +708,7 @@
 				EA2000000000000000000002 /* LocalTestStore.swift in Sources */,
 				A30000000000000000000002 /* TaskStatus.swift in Sources */,
 				A30000000000000000000003 /* ScheduleItem.swift in Sources */,
+				FA2000000000000000000002 /* ProjectCatalog.swift in Sources */,
 				A30000000000000000000004 /* CaffeineEntry.swift in Sources */,
 				A30000000000000000000005 /* FoodEntry.swift in Sources */,
 				A30000000000000000000006 /* SleepEntry.swift in Sources */,
@@ -733,6 +746,7 @@
 				B20000000000000000000005 /* TodayViewModel.swift in Sources */,
 				B20000000000000000000006 /* TaskStatus.swift in Sources */,
 				B20000000000000000000007 /* ScheduleItem.swift in Sources */,
+				FA2000000000000000000003 /* ProjectCatalog.swift in Sources */,
 				B20000000000000000000008 /* CaffeineEntry.swift in Sources */,
 				B20000000000000000000009 /* FoodEntry.swift in Sources */,
 				B2000000000000000000000A /* SleepEntry.swift in Sources */,
@@ -751,6 +765,7 @@
 				B20000000000000000000013 /* SharedViews.swift in Sources */,
 				B20000000000000000000014 /* TodayView.swift in Sources */,
 				B20000000000000000000015 /* TasksView.swift in Sources */,
+				FA2000000000000000000006 /* ProjectsView.swift in Sources */,
 				B20000000000000000000016 /* TaskRowView.swift in Sources */,
 				B20000000000000000000017 /* TimelineView.swift in Sources */,
 				B20000000000000000000018 /* InsightsView.swift in Sources */,
@@ -777,6 +792,7 @@
 				EA2000000000000000000004 /* LocalTestStore.swift in Sources */,
 				W20000000000000000000006 /* TaskStatus.swift in Sources */,
 				W20000000000000000000007 /* ScheduleItem.swift in Sources */,
+				FA2000000000000000000004 /* ProjectCatalog.swift in Sources */,
 				W20000000000000000000008 /* CaffeineEntry.swift in Sources */,
 				W20000000000000000000009 /* FoodEntry.swift in Sources */,
 				W2000000000000000000000A /* SleepEntry.swift in Sources */,
@@ -894,7 +910,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = TrackerDashboard/TrackerDashboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = Y6786ATMVK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -921,7 +937,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = TrackerDashboard/TrackerDashboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = Y6786ATMVK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -947,7 +963,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = TrackerDashboardWidgets/TrackerDashboardWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = Y6786ATMVK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -977,7 +993,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = TrackerDashboardWidgets/TrackerDashboardWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = Y6786ATMVK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;

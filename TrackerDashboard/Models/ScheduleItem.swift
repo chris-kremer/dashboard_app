@@ -24,6 +24,8 @@ struct ScheduleItem: Codable, Identifiable, Equatable {
     var source: String?
     var sourceId: String?
     var importedAt: String?
+    /// Stable across daily rollover copies and separate work intervals.
+    var taskId: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id = "rowId"
@@ -46,6 +48,7 @@ struct ScheduleItem: Codable, Identifiable, Equatable {
         case source
         case sourceId
         case importedAt
+        case taskId
     }
 }
 

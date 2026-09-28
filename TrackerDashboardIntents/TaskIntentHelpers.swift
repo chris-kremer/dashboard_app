@@ -89,7 +89,8 @@ enum TaskIntentHelpers {
             category: task.category,
             comment: task.comment,
             priority: task.priority,
-            estimateMinutes: task.estimateMinutes
+            estimateMinutes: task.estimateMinutes,
+            taskId: task.taskId
         )
         let archivePatch = TaskPatchRequest(
             priority: nil,

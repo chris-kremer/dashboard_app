@@ -9,6 +9,12 @@ struct AddTaskView: View {
     @State private var priority = 3
     @State private var estimate = 30
     @State private var date = Date()
+    var initialProjectId: String? = nil
+    var initialGroupId: String? = nil
+    @State private var projectId = ""
+    @State private var groupId = ""
+    @State private var saving = false
+    @State private var saveError: String?
     @FocusState private var taskFieldFocused: Bool
 
     var body: some View {
@@ -33,6 +39,10 @@ struct AddTaskView: View {
                 Stepper("Priority \(priority)", value: $priority, in: 1...10)
                 Stepper("Estimate \(estimate)m", value: $estimate, in: 5...480, step: 5)
                 DatePicker("Date", selection: $date, displayedComponents: .date)
+                if sync.projectsLoaded {
+                    ProjectLocationPicker(projectId: $projectId, groupId: $groupId)
+                }
+                if let saveError { Text(saveError).foregroundStyle(.red) }
             }
             .navigationTitle("Add Task")
             .toolbar {
@@ -50,12 +60,24 @@ struct AddTaskView: View {
                             estimateMinutes: estimate
                         )
                         Task {
-                            await sync.createTask(request)
-                            dismiss()
+                            saving = true
+                            let succeeded = await sync.createTask(request, projectId: projectId.isEmpty ? nil : projectId, groupId: groupId.isEmpty ? nil : groupId)
+                            saving = false
+                            if succeeded { dismiss() } else { saveError = "Could not save the task. Check sync status before retrying." }
                         }
                     }
-                    .disabled(task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || saving || sync.projectBusy)
                 }
+            }
+            .onAppear {
+                projectId = initialProjectId ?? ""
+                groupId = initialGroupId ?? ""
+                if let project = sync.projectCatalog.projects.first(where: { $0.id == projectId }), category.isEmpty {
+                    category = project.category
+                }
+            }
+            .onChange(of: projectId) { _, value in
+                if let project = sync.projectCatalog.projects.first(where: { $0.id == value }) { category = project.category }
             }
         }
     }

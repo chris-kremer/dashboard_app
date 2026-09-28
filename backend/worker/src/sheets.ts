@@ -5,7 +5,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
 export const SHEET_RANGES = {
-  schedule: "schedule!A2:T",
+  schedule: "schedule!A2:U",
   caffeine: "caffein!A2:D",
   food: "foodtracker!A2:H",
   sleep: "sleep!A2:G",
@@ -157,6 +157,7 @@ function sortSuggestions(
 }
 
 export async function appendTask(env: Env, body: any): Promise<ScheduleItem> {
+  await ensureTaskIdentityColumn(env);
   const rowNumber = await nextRowNumber(env, "schedule");
   const values = [[
     body.date ?? "",
@@ -178,14 +179,25 @@ export async function appendTask(env: Env, body: any): Promise<ScheduleItem> {
     "",
     body.source ?? "",
     body.sourceId ?? "",
-    body.importedAt ?? ""
+    body.importedAt ?? "",
+    body.taskId || crypto.randomUUID()
   ]];
   await sheetsBatchUpdate(env, [buildExactTaskRowWrite(rowNumber, values)]);
   return await readScheduleRow(env, rowNumber);
 }
 
+export async function ensureTaskIdentityColumn(env: Env): Promise<void> {
+  const header = String((await sheetsGet(env, "schedule!U1")).values?.[0]?.[0] ?? "").trim();
+  if (header && header !== "task_id") throw new Error("Column U is already in use. Do not overwrite it; task identity migration requires review.");
+  if (!header) {
+    const existing = (await sheetsGet(env, "schedule!U2:U")).values ?? [];
+    if (existing.some(row => row[0] != null && row[0] !== "")) throw new Error("Column U has existing data but no task_id header. Migration requires review.");
+    await sheetsBatchUpdate(env, [{ range: "schedule!U1", values: [["task_id"]] }]);
+  }
+}
+
 export function buildExactTaskRowWrite(rowNumber: number, values: unknown[][]): { range: string; values: unknown[][] } {
-  return { range: `schedule!A${rowNumber}:T${rowNumber}`, values };
+  return { range: `schedule!A${rowNumber}:${values[0]?.length === 21 ? "U" : "T"}${rowNumber}`, values };
 }
 
 export async function patchTask(env: Env, rowNumber: number, body: any): Promise<ScheduleItem> {
@@ -275,7 +287,8 @@ export function parseSchedule(rows: unknown[][], startRow = 2): ScheduleItem[] {
       lane: optionalString(cell(row, 16)),
       source: optionalString(cell(row, 17)),
       sourceId: optionalString(cell(row, 18)),
-      importedAt: optionalString(cell(row, 19))
+      importedAt: optionalString(cell(row, 19)),
+      taskId: optionalString(cell(row, 20))
     };
   }).filter(item => item.task.trim().length > 0);
 }
@@ -407,8 +420,8 @@ function cell(row: unknown[], index: number): unknown {
   return row[index] ?? "";
 }
 
-async function readScheduleRow(env: Env, rowNumber: number): Promise<ScheduleItem> {
-  const result = await sheetsGet(env, `schedule!A${rowNumber}:T${rowNumber}`);
+export async function readScheduleRow(env: Env, rowNumber: number): Promise<ScheduleItem> {
+  const result = await sheetsGet(env, `schedule!A${rowNumber}:U${rowNumber}`);
   return parseSchedule(result.values ?? [], rowNumber)[0];
 }
 
@@ -445,7 +458,7 @@ async function sheetsAppend(env: Env, range: string, values: unknown[][]): Promi
   if (!response.ok) throw new Error(`Sheets append failed: ${response.status} ${await response.text()}`);
 }
 
-async function sheetsBatchUpdate(env: Env, data: Array<{ range: string; values: unknown[][] }>): Promise<void> {
+export async function sheetsBatchUpdate(env: Env, data: Array<{ range: string; values: unknown[][] }>): Promise<void> {
   const token = await getAccessToken(env);
   const response = await fetch(`${SHEETS_BASE}/${env.SPREADSHEET_ID}/values:batchUpdate`, {
     method: "POST",

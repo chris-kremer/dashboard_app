@@ -53,6 +53,12 @@ struct TaskRowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    if !compact, let path = sync.projectCatalog.path(for: task) {
+                        Text(path)
+                            .font(.caption2)
+                            .foregroundStyle(TrackerStyle.accent)
+                            .lineLimit(2)
+                    }
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())

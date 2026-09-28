@@ -5,6 +5,7 @@ struct TasksView: View {
     @Environment(AppNavigation.self) private var navigation
     @State private var showingAddTask = false
     @State private var searchText = ""
+    @AppStorage("tracker.tasks.presentation") private var presentation = "projects"
 
     private var trimmedSearchText: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -22,7 +23,18 @@ struct TasksView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            VStack(spacing: 0) {
+                Picker("View", selection: $presentation) {
+                    Text("Projects").tag("projects")
+                    Text("Task list").tag("list")
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                if presentation == "projects" {
+                    ProjectsOverviewView()
+                } else {
+                List {
                 Section {
                     TrackerSectionHeader(title: "Tasks", detail: "\(sync.snapshot.todayOpenTasks.count) open · \(TrackerTime.label(sync.snapshot.openEstimateMinutes)) estimated")
                         .listRowSeparator(.hidden)
@@ -48,9 +60,12 @@ struct TasksView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(TrackerStyle.background)
-            .navigationTitle("")
-            .trackerInlineNavigationTitle()
             .searchable(text: $searchText, prompt: "Search tasks")
+                }
+            }
+            .background(TrackerStyle.background)
+            .navigationTitle("Tasks")
+            .trackerInlineNavigationTitle()
             .toolbar {
 #if os(iOS)
                 ToolbarItem(placement: .topBarTrailing) {
@@ -72,6 +87,7 @@ struct TasksView: View {
             .sheet(item: selectedTaskBinding) { task in
                 EditTaskView(task: task)
             }
+            .task { await sync.refreshProjects() }
         }
     }
 

@@ -16,6 +16,11 @@ final class SyncController {
     var healthSleep: HealthSleepEntry?
     var syncState: SyncState
     var isRefreshing = false
+    var projectCatalog = ProjectCatalog()
+    var projectsLoaded = false
+    var projectError: String?
+    var projectBusy = false
+    var projectToClose: TrackerProject?
 
     private let cache: SharedCache
     private let apiClient: TrackerAPIClient
@@ -47,6 +52,7 @@ final class SyncController {
             try cache.saveSyncState(syncState)
             reloadWidgets()
             SleepReminderScheduler.update(for: snapshot)
+            await refreshProjects()
         } catch {
             syncState.lastError = error.localizedDescription
             try? cache.saveSyncState(syncState)
@@ -114,20 +120,28 @@ final class SyncController {
 #endif
     }
 
-    func createTask(_ request: CreateTaskRequest) async {
+    @discardableResult
+    func createTask(_ request: CreateTaskRequest, projectId: String? = nil, groupId: String? = nil) async -> Bool {
+        var assignmentFailed = false
         let succeeded = await perform(kind: .createTask, request: request) {
             let item = try await apiClient.createTask(request)
             try cache.upsertTask(item)
+            if let projectId {
+                assignmentFailed = !(await assignProjectTasks([item], projectId: projectId, groupId: groupId))
+            }
             await refresh(date: request.date)
         }
         if succeeded {
-            postSaveConfirmation(request.source == "ios-gap-fill" || request.status == .logged
+            postSaveConfirmation(assignmentFailed ? "Task saved in Other tasks. Retry its project assignment."
+                : request.source == "ios-gap-fill" || request.status == .logged
                 ? "Activity logged"
                 : "To-do added")
         }
+        return succeeded
     }
 
-    func updateTask(rowNumber: Int, patch: TaskPatchRequest) async {
+    @discardableResult
+    func updateTask(rowNumber: Int, patch: TaskPatchRequest) async -> Bool {
         await perform(kind: .updateTask, request: patch) {
             let item = try await apiClient.updateTask(rowNumber: rowNumber, patch: patch)
             try cache.upsertTask(item)
@@ -311,6 +325,7 @@ final class SyncController {
     ) async -> Bool {
         do {
             try await operation()
+            if projectsLoaded { await refreshProjects() }
             return true
         } catch {
             var pending = PendingOperation(kind: kind, payload: (try? TrackerJSON.encoder.encode(request)) ?? Data())
@@ -329,6 +344,78 @@ final class SyncController {
         )
     }
 
+    func refreshProjects() async {
+        guard !projectBusy else { return }
+        projectBusy = true
+        defer { projectBusy = false }
+        do {
+            acceptProjects(try await apiClient.fetchProjects())
+        } catch { projectError = error.localizedDescription }
+    }
+
+    private func acceptProjects(_ catalog: ProjectCatalog) {
+        let today = Date.trackerDateFormatter.string(from: Date())
+        if projectsLoaded {
+            projectToClose = catalog.projects.first {
+                !$0.closed && catalog.isComplete($0.id, on: today)
+                    && !projectCatalog.isComplete($0.id, on: today)
+            } ?? projectToClose
+        }
+        projectCatalog = catalog
+        projectsLoaded = true
+        projectError = nil
+    }
+
+    @discardableResult
+    func saveProjects(_ catalog: ProjectCatalog) async -> Bool {
+        guard !projectBusy else { return false }
+        projectBusy = true
+        defer { projectBusy = false }
+        do {
+            acceptProjects(try await apiClient.saveProjects(catalog))
+            return true
+        } catch {
+            projectError = error.localizedDescription
+            return false
+        }
+    }
+
+    @discardableResult
+    func assignProjectTasks(_ tasks: [ScheduleItem], projectId: String?, groupId: String?) async -> Bool {
+        guard !projectBusy else { return false }
+        projectBusy = true
+        defer { projectBusy = false }
+        do {
+            acceptProjects(try await apiClient.linkProjectTasks(ProjectLinkRequest(
+                revision: projectCatalog.revision, rows: tasks.map(ProjectRowReference.init), projectId: projectId, groupId: groupId
+            )))
+            // Include newly stamped identities in task and Live Activity caches.
+            for row in projectCatalog.schedule where row.date == snapshot.date {
+                try cache.upsertTask(row)
+            }
+            snapshot = cache.loadSnapshot() ?? snapshot
+            return true
+        } catch {
+            projectError = error.localizedDescription
+            return false
+        }
+    }
+
+    func resolveMissingTask(_ task: ScheduleItem, action: String) async {
+        guard !projectBusy, let taskId = task.taskId else { return }
+        projectBusy = true
+        do {
+            acceptProjects(try await apiClient.resolveProjectTask(ProjectResolutionRequest(
+                revision: projectCatalog.revision, taskId: taskId, action: action
+            )))
+            projectBusy = false
+            await refresh()
+        } catch {
+            projectBusy = false
+            projectError = error.localizedDescription
+        }
+    }
+
     private func continueTaskFromLoggedInterval(_ task: ScheduleItem) async {
         let startTime = Date.trackerTimeFormatter.string(from: Date())
         let createRequest = CreateTaskRequest(
@@ -337,7 +424,8 @@ final class SyncController {
             category: task.category,
             comment: task.comment,
             priority: task.priority,
-            estimateMinutes: task.estimateMinutes
+            estimateMinutes: task.estimateMinutes,
+            taskId: task.taskId
         )
         let archivePatch = TaskPatchRequest(
             priority: nil,

@@ -1,6 +1,7 @@
-import { appendCaffeine, appendFood, appendTask, completeTask, patchTask, readSnapshot, upsertSleep } from "./sheets";
+import { appendCaffeine, appendFood, readSnapshot, upsertSleep } from "./sheets";
 import type { Env } from "./types";
 export { NudgeCoordinator } from "./nudges";
+export { ProjectCoordinator } from "./projects";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -36,6 +37,11 @@ export default {
         return coordinator(env).fetch(new Request("https://nudge/sessions"));
       }
 
+      if (url.pathname === "/projects" || url.pathname.startsWith("/projects/")) {
+        const id = env.PROJECT_COORDINATOR.idFromName("primary");
+        return env.PROJECT_COORDINATOR.get(id).fetch(request);
+      }
+
       if (url.pathname.startsWith("/nudge/")) {
         const targetPath = url.pathname.slice("/nudge".length);
         const target = new URL(`https://nudge${targetPath}`);
@@ -48,23 +54,11 @@ export default {
         return json(await readSnapshot(env, date));
       }
 
-      if (request.method === "POST" && url.pathname === "/tasks") {
-        const task = await appendTask(env, await request.json());
-        await notifyTaskStateChanged(env);
-        return json(task, 201);
-      }
-
-      const taskMatch = url.pathname.match(/^\/tasks\/(\d+)(?:\/complete)?$/);
-      if (taskMatch && request.method === "PATCH" && !url.pathname.endsWith("/complete")) {
-        const task = await patchTask(env, Number(taskMatch[1]), await request.json());
-        await notifyTaskStateChanged(env);
-        return json(task);
-      }
-      if (taskMatch && request.method === "POST" && url.pathname.endsWith("/complete")) {
-        const body: { source?: string; stop?: string } = await request.json<{ source?: string; stop?: string }>().catch(() => ({}));
-        const task = await completeTask(env, Number(taskMatch[1]), body.source ?? "ios", body.stop);
-        await notifyTaskStateChanged(env);
-        return json(task);
+      if (url.pathname === "/tasks" || /^\/tasks\/\d+(?:\/complete)?$/.test(url.pathname)) {
+        const id = env.PROJECT_COORDINATOR.idFromName("primary");
+        const result = await env.PROJECT_COORDINATOR.get(id).fetch(request);
+        if (result.ok) await notifyTaskStateChanged(env);
+        return result;
       }
 
       if (request.method === "POST" && url.pathname === "/caffeine") {

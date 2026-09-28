@@ -97,8 +97,8 @@ describe("sheet parsers", () => {
     expect(task.importedAt).toBe("2026-06-05T06:00:00.000Z");
   });
 
-  it("reads schedule rows through column T so planned metadata is available", () => {
-    expect(SHEET_RANGES.schedule).toBe("schedule!A2:T");
+  it("reads schedule rows through column U for stable task identity", () => {
+    expect(SHEET_RANGES.schedule).toBe("schedule!A2:U");
   });
 
   it("keeps paused tasks open but excludes completed, logged, and finished schedule rows", () => {

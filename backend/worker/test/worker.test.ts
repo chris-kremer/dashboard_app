@@ -7,6 +7,7 @@ const env = {
   GOOGLE_SERVICE_ACCOUNT_JSON: "{}",
   SPREADSHEET_ID: "sheet",
   VERSION: "1.0.0",
+  PROJECT_COORDINATOR: {} as DurableObjectNamespace,
   NUDGE_COORDINATOR: {
     idFromName: () => ({}) as DurableObjectId,
     get: () => ({

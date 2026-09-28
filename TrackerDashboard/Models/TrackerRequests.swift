@@ -45,6 +45,7 @@ struct CreateTaskRequest: Codable, Equatable {
     var source: String? = nil
     var sourceId: String? = nil
     var importedAt: String? = nil
+    var taskId: String? = nil
 }
 
 struct TaskPatchRequest: Codable, Equatable {

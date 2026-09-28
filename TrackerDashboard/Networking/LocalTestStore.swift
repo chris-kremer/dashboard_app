@@ -20,6 +20,7 @@ final class LocalTestStore {
         var caffeine: [CaffeineEntry] = []
         var sleep: [SleepEntry] = []
         var nextRow = 2
+        var projects: ProjectCatalog? = nil
     }
 
     func respond(to request: URLRequest) throws -> Data {
@@ -52,6 +53,59 @@ final class LocalTestStore {
         let method = request.httpMethod ?? "GET"
         func decode<T: Decodable>(_ type: T.Type) throws -> T {
             try TrackerJSON.decoder.decode(type, from: request.httpBody ?? Data())
+        }
+
+        if path == "/projects" || path.hasPrefix("/projects/") {
+            var catalog = database.projects ?? ProjectCatalog()
+            if method != "GET" {
+                let fields = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+                guard fields?["revision"] as? Int == catalog.revision else {
+                    throw APIError.httpStatus(409, "Projects changed. Refresh and try again.")
+                }
+                if method == "PUT", path == "/projects" {
+                    catalog = try decode(ProjectCatalog.self)
+                } else if method == "POST", path == "/projects/link" {
+                    let link = try decode(ProjectLinkRequest.self)
+                    guard link.projectId == nil || catalog.projects.contains(where: { $0.id == link.projectId && !$0.closed }),
+                          link.groupId == nil || catalog.groups.contains(where: { $0.id == link.groupId && $0.projectId == link.projectId }) else {
+                        throw APIError.httpStatus(400, "Invalid project destination")
+                    }
+                    for ref in link.rows {
+                        guard let index = database.tasks.firstIndex(where: { $0.rowNumber == ref.rowNumber && $0.task == ref.task && $0.date == ref.date }),
+                              ref.taskId == nil || database.tasks[index].taskId == ref.taskId else {
+                            throw APIError.httpStatus(409, "Task changed. Refresh before assigning it.")
+                        }
+                        let id = database.tasks[index].taskId ?? UUID().uuidString
+                        database.tasks[index].taskId = id
+                        var member = catalog.memberships.first { $0.taskId == id }
+                            ?? ProjectMembership(taskId: id, projectId: link.projectId)
+                        member.projectId = link.projectId; member.groupId = link.groupId; member.resolution = nil
+                        catalog.memberships.removeAll { $0.taskId == id }
+                        catalog.memberships.append(member)
+                    }
+                } else if method == "POST", path == "/projects/resolve" {
+                    let resolution = try decode(ProjectResolutionRequest.self)
+                    let today = Date.trackerDateFormatter.string(from: Date())
+                    guard let index = catalog.memberships.firstIndex(where: { $0.taskId == resolution.taskId }),
+                          let last = database.tasks.filter({ $0.taskId == resolution.taskId }).max(by: { ($0.date, $0.rowNumber) < ($1.date, $1.rowNumber) }),
+                          last.date < today, last.isOpenDisplayTask else {
+                        throw APIError.httpStatus(409, "Task is no longer missing")
+                    }
+                    if resolution.action == "keep" {
+                        let request = CreateTaskRequest(date: today, task: last.task, category: last.category,
+                            comment: last.comment, priority: last.priority, estimateMinutes: last.estimateMinutes, taskId: last.taskId)
+                        database.tasks.append(makeTask(request, row: database.nextRow)); database.nextRow += 1
+                        catalog.memberships[index].resolution = nil
+                    } else if ["done", "discarded"].contains(resolution.action) {
+                        catalog.memberships[index].resolution = resolution.action
+                    } else { throw APIError.httpStatus(400, "Invalid resolution") }
+                } else { throw APIError.httpStatus(404, "Unsupported project operation") }
+                catalog.revision += 1
+                catalog.schedule = []
+                database.projects = catalog
+            }
+            catalog.schedule = database.tasks
+            return try TrackerJSON.encoder.encode(catalog)
         }
 
         if method == "GET", path == "/snapshot" {
@@ -151,7 +205,8 @@ final class LocalTestStore {
                      category: value.category, comment: value.comment, priority: value.priority,
                      estimateMinutes: value.estimateMinutes, adjustedPriority: value.priority,
                      start: value.start, stop: value.stop, status: value.status ?? .open,
-                     source: value.source, sourceId: value.sourceId, importedAt: value.importedAt)
+                     source: value.source, sourceId: value.sourceId, importedAt: value.importedAt,
+                     taskId: value.taskId ?? UUID().uuidString)
     }
 
     private static func seed() -> Database {

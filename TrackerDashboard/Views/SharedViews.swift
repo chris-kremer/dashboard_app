@@ -1,12 +1,70 @@
 import SwiftUI
 
+enum TrackerStyle {
+    static let background = adaptive(0xF6F5F1, 0x151815)
+    static let surface = adaptive(0xFFFFFF, 0x222722)
+    static let ink = adaptive(0x25322E, 0xEDF1E9)
+    static let accent = adaptive(0x426753, 0xB4CEB2)
+    static let soft = adaptive(0xE7EEE3, 0x293B30)
+    static let freeTime = adaptive(0xBF776D, 0xDC9C91)
+    static let sleep = adaptive(0xA39CBE, 0xB8AFD0)
+    static let life = adaptive(0x829EAF, 0x93AFC0)
+
+    private static func adaptive(_ light: UInt32, _ dark: UInt32) -> Color {
+        func components(_ hex: UInt32) -> (CGFloat, CGFloat, CGFloat) {
+            (CGFloat((hex >> 16) & 255) / 255, CGFloat((hex >> 8) & 255) / 255, CGFloat(hex & 255) / 255)
+        }
+#if os(iOS)
+        return Color(uiColor: UIColor { traits in
+            let (r, g, b) = components(traits.userInterfaceStyle == .dark ? dark : light)
+            return UIColor(red: r, green: g, blue: b, alpha: 1)
+        })
+#else
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            let (r, g, b) = components(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light)
+            return NSColor(red: r, green: g, blue: b, alpha: 1)
+        })
+#endif
+    }
+}
+
+struct TrackerSectionHeader: View {
+    let title: String
+    var detail: String = ""
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title).font(.title2.weight(.bold))
+            Spacer(minLength: 8)
+            if !detail.isEmpty { Text(detail).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.trailing) }
+        }
+    }
+}
+
+struct TrackerDisclosure: View {
+    let title: String
+    let detail: String
+    var value: String = ""
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title).font(.headline)
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            if !value.isEmpty { Text(value).font(.title3.weight(.medium)).monospacedDigit() }
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+        }
+        .foregroundStyle(TrackerStyle.ink)
+        .padding(17)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 20))
+        .contentShape(Rectangle())
+    }
+}
+
 extension Color {
     static var trackerGroupedBackground: Color {
-#if os(macOS)
-        Color(nsColor: .windowBackgroundColor)
-#else
-        Color(.systemGroupedBackground)
-#endif
+        TrackerStyle.background
     }
 
     static var trackerDarkGreen: Color {
@@ -25,7 +83,7 @@ struct DashboardCard<Content: View>: View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 

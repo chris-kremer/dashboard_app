@@ -23,6 +23,11 @@ struct TasksView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    TrackerSectionHeader(title: "Tasks", detail: "\(sync.snapshot.todayOpenTasks.count) open · \(TrackerTime.label(sync.snapshot.openEstimateMinutes)) estimated")
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                }
                 if tasks.isEmpty {
                     EmptyStateView(
                         title: trimmedSearchText.isEmpty
@@ -35,12 +40,16 @@ struct TasksView: View {
                 } else {
                     ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
                         TaskRowView(task: task, rank: index + 1)
-                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 12))
+                            .listRowBackground(Color.clear)
                     }
                 }
             }
             .listStyle(.plain)
-            .navigationTitle("Tasks")
+            .scrollContentBackground(.hidden)
+            .background(TrackerStyle.background)
+            .navigationTitle("")
+            .trackerInlineNavigationTitle()
             .searchable(text: $searchText, prompt: "Search tasks")
             .toolbar {
 #if os(iOS)

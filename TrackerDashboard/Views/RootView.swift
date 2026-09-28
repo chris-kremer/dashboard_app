@@ -28,6 +28,36 @@ struct RootView: View {
                 .tag(TrackerSection.settings)
         }
         .environment(navigation)
+        .tint(TrackerStyle.accent)
+        .background(TrackerStyle.background)
+#if os(iOS)
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HStack(spacing: 2) {
+                ForEach(TrackerSection.allCases) { section in
+                    Button {
+                        navigation.selectedSection = section
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: section.systemImage).font(.system(size: 19))
+                            Text(section.title).font(.caption2)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .foregroundStyle(navigation.selectedSection == section ? TrackerStyle.accent : .secondary)
+                        .background(navigation.selectedSection == section ? TrackerStyle.soft : .clear, in: Capsule())
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(navigation.selectedSection == section ? .isSelected : [])
+                }
+            }
+            .padding(5)
+            .background(TrackerStyle.surface, in: Capsule())
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(TrackerStyle.background)
+        }
+#endif
         .safeAreaInset(edge: .top, spacing: 0) {
             if AppSettings.shared.usesLocalTestData {
                 Label("Test data · saved only on this device", systemImage: "testtube.2")

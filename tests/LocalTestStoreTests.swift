@@ -46,6 +46,14 @@ struct LocalTestStoreTests {
         let date = Date.trackerDateFormatter.string(from: Date())
         let initial = try await api.fetchSnapshot(date: date)
         check(initial.openTasks.count == 3, "New dataset seeds three fictional tasks")
+        check(TrackerTime.unionMinutes([60..<120, 90..<150, 150..<180]) == 120, "Overlaps count only once")
+        check(TrackerTime.unionMinutes([]) == 0, "Empty union")
+        check(TrackerTime.laneAssignments([0..<60, 30..<90, 60..<120]) == [0, 1, 0], "Overlaps have separate lanes; adjacent intervals reuse lanes")
+        check(TrackerTime.laneAssignments([60..<120, 0..<60]) == [0, 0], "Lane packing accepts unsorted entries")
+        check(TrackerTime.minute("24:00") == 1440 && TrackerTime.minute("24:01") == nil, "Midnight boundary is validated")
+        check(TrackerTime.label(195) == "3h 15m", "Workload duration format")
+        let overnight = FreeTimeEntry(id: "overnight", date: date, label: "YouTube", durationMinutes: 60, time: nil, start: "23:30", end: "00:30")
+        check(TrackerTime.unionMinutes(TrackerTime.freeTimeIntervals([overnight], limit: 600)) == 30, "Cross-midnight free time clips to elapsed day")
 
         let task = try await api.createTask(CreateTaskRequest(date: date, task: "Test task", category: "personal", priority: 3, estimateMinutes: 20))
         let running = try await api.updateTask(rowNumber: task.rowNumber, patch: TaskPatchRequest(start: "09:00", status: .inProgress, clearsStop: true))
@@ -56,6 +64,28 @@ struct LocalTestStoreTests {
         check(cleared.stop == nil, "Explicit null clears stop")
         let done = try await api.completeTask(rowNumber: task.rowNumber, source: "test", stop: "09:30")
         check(done.status == .done && done.actualMinutes == 10 && !done.isOpenDisplayTask, "Task completion persists")
+        var overlapping = done
+        overlapping.start = "09:25"
+        overlapping.stop = "09:40"
+        var pausedInterval = done
+        pausedInterval.status = .inProgress
+        pausedInterval.start = "10:00"
+        pausedInterval.stop = "10:15"
+        var leisure = done
+        leisure.category = "Free_time"
+        leisure.start = "10:00"
+        leisure.stop = "11:00"
+        var metrics = initial
+        metrics.schedule = [done, overlapping, pausedInterval, leisure]
+        let endOfDay = Date.trackerDateFormatter.date(from: date)!.addingTimeInterval(23 * 3600)
+        check(metrics.productiveMinutes(now: endOfDay) == 35, "Actual productive intervals union; paused work included; free time excluded")
+        check(metrics.finishedTaskCount == 3, "Paused intervals do not count as finished tasks")
+        var unstarted = done
+        unstarted.start = nil
+        unstarted.stop = nil
+        unstarted.estimateMinutes = 400
+        metrics.schedule = [unstarted]
+        check(metrics.productiveMinutes(now: endOfDay) == 0, "Estimates never masquerade as productive time")
 
         _ = try await api.logFood(FoodRequest(date: date, time: "12:00", mealContext: "Lunch", item: "Soup", amount: "1 bowl", location: "Home", notes: "Entry-specific", confidence: "High"))
         _ = try await api.logCaffeine(CaffeineRequest(date: date, label: "Coffee", time: "10:00"))

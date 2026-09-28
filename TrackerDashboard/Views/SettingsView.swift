@@ -50,6 +50,11 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        InsightsView(section: .nudges)
+                    } label: {
+                        Label("Nudge effectiveness", systemImage: "bell.and.waves.left.and.right")
+                    }
                     Toggle("Nudge during free time", isOn: $settings.nudgesEnabled)
                     LabeledContent("First nudge", value: "Immediately")
                     LabeledContent("Repeat", value: "Randomly, about every 2 minutes")
@@ -114,6 +119,8 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .scrollContentBackground(.hidden)
+            .background(TrackerStyle.background)
         }
     }
 }

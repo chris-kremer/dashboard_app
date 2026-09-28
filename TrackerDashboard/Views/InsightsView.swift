@@ -1,5 +1,17 @@
 import SwiftUI
 
+enum InsightsSection {
+    case overview, freeTime, nudges, logs
+    var title: String {
+        switch self {
+        case .overview: "Insights"
+        case .freeTime: "Free time"
+        case .nudges: "Nudge effectiveness"
+        case .logs: "Daily logs"
+        }
+    }
+}
+
 struct InsightsView: View {
     @Environment(SyncController.self) private var sync
     @Environment(MediaSyncController.self) private var mediaSync
@@ -84,8 +96,10 @@ struct InsightsView: View {
     }
 
     private var trackedFreeTimeMinutes: Int {
-        let sheetMinutes = (sync.snapshot.freeTime ?? []).reduce(0) { $0 + ($1.durationMinutes ?? 0) }
-        return sheetMinutes + mediaFreeTimeMinutes
+        let intervals = TrackerTime.freeTimeIntervals(trackedFreeTimeEntries)
+        let untimed = trackedFreeTimeEntries.filter { TrackerTime.minute($0.start ?? $0.time) == nil }
+            .reduce(0) { $0 + max(0, $1.durationMinutes ?? 0) }
+        return TrackerTime.unionMinutes(intervals) + untimed
     }
 
     private var mediaFreeTimeMinutes: Int {
@@ -132,7 +146,7 @@ struct InsightsView: View {
     }
 
     private var remainingWorkloadItems: [ScheduleItem] {
-        workloadItems
+        sync.snapshot.todayOpenTasks
             .filter { !isCompletedForInsights($0) }
             .sorted {
                 ($0.adjustedPriority ?? -1, $0.priority ?? -1, -($0.estimateMinutes ?? 0), $0.task)
@@ -140,137 +154,174 @@ struct InsightsView: View {
             }
     }
 
+    @State private var history: [String: TrackerSnapshot] = [:]
+    @State private var historyError = false
+    @State private var selectedHistoryDate: String?
+    var section: InsightsSection = .overview
+
     var body: some View {
         @Bindable var navigation = navigation
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("Insights")
-                        .font(.largeTitle.weight(.bold))
-
-                    NavigationLink {
-                        WorkloadDetailView(tasks: remainingWorkloadItems)
-                    } label: {
-                        workloadCard
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Shows unfinished priority tasks and their estimated durations")
-
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        NavigationLink {
-                            CompletedTasksDetailView(tasks: completedTaskItems)
-                        } label: {
-                            insightCard(
-                                title: "Completed",
-                                value: "\(completedTasks)",
-                                detail: "items finished",
-                                systemImage: "checkmark.circle.fill",
-                                tint: .green,
-                                showsDisclosure: true
-                            )
+        Group {
+            if section == .overview {
+                NavigationStack {
+                    overview
+                        .navigationDestination(isPresented: $navigation.showingCoverageGaps) {
+                            CoverageGapsDetailView(date: sync.snapshot.date)
                         }
-                        .buttonStyle(.plain)
-                        NavigationLink {
-                            UrgentTasksDetailView(completed: urgentCompletedItems, open: urgentOpenItems)
-                        } label: {
-                            insightCard(
-                                title: "Urgent Done",
-                                value: "\(urgentCompletionPercent)%",
-                                detail: "\(urgentCompletedItems.count)/\(urgentKnownCount) AP 10+ finished",
-                                systemImage: "flame.fill",
-                                tint: urgentCompletionTint,
-                                showsDisclosure: true
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    NavigationLink {
-                        CoverageGapsDetailView(date: sync.snapshot.date)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Label("Logged Coverage", systemImage: "record.circle.fill")
-                                    .font(.headline)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("\(loggedCoveragePercent)%")
-                                    .font(.title3.monospacedDigit().weight(.bold))
-                                    .foregroundStyle(loggedCoverageColor)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            GeometryReader { proxy in
-                                ZStack(alignment: .leading) {
-                                    Capsule()
-                                        .fill(Color.secondary.opacity(0.14))
-                                    Capsule()
-                                        .fill(loggedCoverageColor)
-                                        .frame(width: proxy.size.width * loggedCoverageShare)
-                                }
-                            }
-                            .frame(height: 12)
-
-                            HStack {
-                                Text("\(minutesLabel(loggedMinutes)) logged")
-                                Spacer()
-                                Text("\(minutesLabel(max(loggedCoverageDenominatorMinutes - loggedMinutes, 0))) unlogged so far")
-                            }
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                            Text("\(coverageGaps.count) \(coverageGaps.count == 1 ? "gap" : "gaps") over 5 minutes to review")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(16)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Shows unlogged gaps and lets you fill them with activities")
-
-                    sectionTitle("Logged Today")
-                    HStack(spacing: 10) {
-                        NavigationLink {
-                            CaffeineDetailView(entries: sync.snapshot.caffeine)
-                        } label: {
-                            compactMetric("Coffee", "\(sync.snapshot.caffeine.count)", "cup.and.saucer.fill", .brown, showsDisclosure: true)
-                        }
-                        .buttonStyle(.plain)
-                        NavigationLink {
-                            FoodDetailView(entries: sync.snapshot.food)
-                        } label: {
-                            compactMetric("Food", "\(sync.snapshot.food.count)", "fork.knife", .teal, showsDisclosure: true)
-                        }
-                        .buttonStyle(.plain)
-                        NavigationLink {
-                            SleepDetailView(healthSleep: sync.healthSleep, manualSleep: sync.snapshot.sleep)
-                        } label: {
-                            compactMetric("Sleep", sleepValue, "bed.double.fill", .indigo, showsDisclosure: true)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    if sync.healthSleep != nil || sync.snapshot.sleep != nil {
-                        sleepCard()
-                    }
-
-                    trackedFreeTimeCard
-
-                    if mediaSync.nudgeSummary != nil || !selectedNudgeHistory.isEmpty {
-                        nudgeEffectivenessCard
-                    }
                 }
-                .padding(.horizontal)
-                .padding(.top, 18)
-                .padding(.bottom, 32)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        switch section {
+                        case .freeTime: trackedFreeTimeCard
+                        case .nudges:
+                            nudgeEffectivenessCard
+                            Text("A session ending after a reminder does not necessarily mean the reminder caused it.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        case .logs:
+                            dailyLogs
+                            if sync.healthSleep != nil || sync.snapshot.sleep != nil { sleepCard() }
+                        case .overview: EmptyView()
+                        }
+                    }.padding(20)
+                }
+                .background(TrackerStyle.background)
+                .navigationTitle(section.title)
+                .trackerInlineNavigationTitle()
+                .task { await mediaSync.refresh(date: sync.snapshot.date) }
             }
-            .background(Color.trackerGroupedBackground)
         }
-        .navigationDestination(isPresented: $navigation.showingCoverageGaps) {
-            CoverageGapsDetailView(date: sync.snapshot.date)
+    }
+
+    private var overview: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                TrackerSectionHeader(title: "Insights", detail: sync.snapshot.date)
+                HStack(alignment: .top) {
+                    metricPair(title: "Productive time", value: TrackerTime.label(sync.snapshot.productiveMinutes()), tint: TrackerStyle.ink)
+                    Spacer()
+                    NavigationLink {
+                        CompletedTasksDetailView(tasks: completedTaskItems)
+                    } label: {
+                        metricPair(title: "Tasks finished", value: "\(sync.snapshot.finishedTaskCount)", tint: TrackerStyle.ink)
+                    }.buttonStyle(.plain)
+                }
+                .padding(20)
+                .background(TrackerStyle.soft, in: RoundedRectangle(cornerRadius: 24))
+                productiveTrend
+                NavigationLink { WorkloadDetailView(tasks: remainingWorkloadItems) } label: {
+                    TrackerDisclosure(title: "Workload", detail: "\(remainingWorkloadItems.count) open tasks · estimated",
+                        value: TrackerTime.label(sync.snapshot.openEstimateMinutes))
+                }.buttonStyle(.plain)
+                NavigationLink { CoverageGapsDetailView(date: sync.snapshot.date) } label: {
+                    VStack(spacing: 0) {
+                        TrackerDisclosure(title: "Logged coverage",
+                            detail: "\(TrackerTime.label(max(0, loggedCoverageDenominatorMinutes - loggedMinutes))) unlogged · \(coverageGaps.count) gaps over 5 min",
+                            value: "\(loggedCoveragePercent)%")
+                        ProgressView(value: loggedCoverageShare)
+                            .tint(TrackerStyle.accent).padding(.horizontal, 17).padding(.bottom, 17)
+                    }.background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 20))
+                }.buttonStyle(.plain)
+                NavigationLink { InsightsView(section: .freeTime) } label: {
+                    TrackerDisclosure(title: "Free time", detail: "YouTube, X & recent sessions")
+                }.buttonStyle(.plain)
+                NavigationLink { InsightsView(section: .logs) } label: {
+                    TrackerDisclosure(title: "Daily logs", detail: "Meals, caffeine & sleep")
+                }.buttonStyle(.plain)
+                if urgentKnownCount > 0 {
+                    NavigationLink { UrgentTasksDetailView(completed: urgentCompletedItems, open: urgentOpenItems) } label: {
+                        TrackerDisclosure(title: "Priority tasks", detail: "\(urgentCompletedItems.count) of \(urgentKnownCount) AP 10+ finished",
+                            value: "\(urgentCompletionPercent)%")
+                    }.buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+        }
+        .background(TrackerStyle.background)
+        .navigationTitle("").trackerInlineNavigationTitle()
+        .refreshable {
+            await sync.refresh()
+            await mediaSync.refresh(date: sync.snapshot.date)
+            await loadHistory()
+        }
+        .task(id: sync.snapshot.date) { await loadHistory() }
+    }
+
+    private var dailyLogs: some View {
+        VStack(spacing: 12) {
+            NavigationLink { CaffeineDetailView(entries: sync.snapshot.caffeine) } label: {
+                TrackerDisclosure(title: "Caffeine", detail: "Drinks logged", value: "\(sync.snapshot.caffeine.count)")
+            }
+            NavigationLink { FoodDetailView(entries: sync.snapshot.food) } label: {
+                TrackerDisclosure(title: "Meals", detail: "Food entries", value: "\(sync.snapshot.food.count)")
+            }
+            NavigationLink { SleepDetailView(healthSleep: sync.healthSleep, manualSleep: sync.snapshot.sleep) } label: {
+                TrackerDisclosure(title: "Sleep", detail: "Night record & phases", value: sleepValue)
+            }
+        }.buttonStyle(.plain)
+    }
+
+    private var trendDates: [String] {
+        let end = Date.trackerDateFormatter.date(from: sync.snapshot.date) ?? Date()
+        return (0..<7).reversed().compactMap {
+            Calendar.current.date(byAdding: .day, value: -$0, to: end).map { Date.trackerDateFormatter.string(from: $0) }
+        }
+    }
+
+    private func minutesForTrend(_ date: String) -> Int? {
+        if date == sync.snapshot.date { return sync.snapshot.productiveMinutes() }
+        return history[date]?.productiveMinutes()
+    }
+
+    private var productiveTrend: some View {
+        let selected = selectedHistoryDate ?? sync.snapshot.date
+        let maximum = max(1, trendDates.compactMap(minutesForTrend).max() ?? 1)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Productive time").font(.headline)
+                Spacer()
+                Text("Last 7 days").font(.caption).foregroundStyle(.secondary)
+            }
+            HStack(alignment: .bottom, spacing: 6) {
+                ForEach(trendDates, id: \.self) { date in
+                    let minutes = minutesForTrend(date)
+                    Button { selectedHistoryDate = date } label: {
+                        VStack(spacing: 7) {
+                            ZStack(alignment: .bottom) {
+                                Color.clear.frame(height: 80)
+                                if let minutes {
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(TrackerStyle.accent.opacity(date == selected ? 1 : 0.3))
+                                        .frame(height: max(1, CGFloat(minutes) / CGFloat(maximum) * 80))
+                                } else {
+                                    Text("–").foregroundStyle(.secondary)
+                                }
+                            }.frame(maxWidth: 28)
+                            Text(Date.trackerDateFormatter.date(from: date)?.formatted(.dateTime.weekday(.abbreviated)) ?? date)
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 100)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(date): \(minutes.map(TrackerTime.label) ?? "Unavailable") productive")
+                    .accessibilityAddTraits(date == selected ? .isSelected : [])
+                }
+            }
+            Text("\(selected) · \(minutesForTrend(selected).map(TrackerTime.label) ?? "Unavailable")\(selected == Date.trackerDateFormatter.string(from: Date()) ? " so far" : "")")
+                .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .trailing)
+            if historyError {
+                Text("Some history is unavailable. Pull to refresh.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func loadHistory() async {
+        historyError = false
+        for date in trendDates where date != sync.snapshot.date {
+            guard !Task.isCancelled else { return }
+            do { history[date] = try await TrackerAPIClient.shared.fetchSnapshot(date: date) }
+            catch { historyError = true }
         }
     }
 
@@ -312,93 +363,54 @@ struct InsightsView: View {
     }
 
     private var trackedFreeTimeCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Label("Tracked Free Time", systemImage: "play.rectangle.on.rectangle.fill")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if mediaSync.isRefreshing {
-                    ProgressView()
-                } else {
-                    Button {
-                        Task { await mediaSync.refresh(date: sync.snapshot.date) }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Total tracked free time").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button { Task { await mediaSync.refresh(date: sync.snapshot.date) } } label: {
+                        Image(systemName: "arrow.clockwise").frame(width: 44, height: 44)
                     }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Refresh media free time")
+                    .accessibilityLabel("Refresh free time")
+                }
+                Text(minutesLabel(trackedFreeTimeMinutes)).font(.largeTitle.weight(.medium)).monospacedDigit()
+                if mediaSync.snapshot.sessions != nil {
+                    HStack {
+                        metricPair(title: "YouTube", value: minutesLabel(selectedMediaSummary.youtubeMinutes), tint: TrackerStyle.ink)
+                        Spacer()
+                        metricPair(title: "X", value: minutesLabel(selectedMediaSummary.xMinutes), tint: TrackerStyle.ink)
+                    }
                 }
             }
-
-            HStack(spacing: 12) {
-                metricPair(title: "Total", value: minutesLabel(trackedFreeTimeMinutes), tint: .purple)
-                Divider()
-                metricPair(
-                    title: "Media total",
-                    value: minutesLabel(mediaSync.snapshot.sessions == nil ? mediaFreeTimeMinutes : selectedMediaSummary.totalMinutes),
-                    tint: .purple
-                )
-                Divider()
-                metricPair(
-                    title: "Sessions",
-                    value: "\(mediaSync.snapshot.sessions == nil ? todaysMediaEvents.count : selectedMediaSummary.sessionCount)",
-                    tint: .purple
-                )
-            }
-            .frame(height: 48)
-
+            .padding(20)
+            .background(TrackerStyle.freeTime.opacity(0.12), in: RoundedRectangle(cornerRadius: 24))
             if mediaSync.snapshot.sessions != nil {
-                Divider()
-                    .opacity(0.5)
-
-                mediaDailyStats
+                let overlap = max(0, selectedMediaSummary.youtubeMinutes + selectedMediaSummary.xMinutes - selectedMediaSummary.totalMinutes)
+                Text("\(minutesLabel(overlap)) media overlap · counted once in the total")
+                    .font(.caption).foregroundStyle(.secondary)
                 mediaRecentTrend
-
-                if !recentMediaSessions.isEmpty {
-                    mediaRecentActivity
-                }
+                if !recentMediaSessions.isEmpty { mediaRecentActivity }
             }
-
             if trackedFreeTimeEntries.isEmpty {
-                Text("No tracked free-time entries for this date.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(trackedFreeTimeEntries) { entry in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.label)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(freeTimeDetail(entry))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(minutesLabel(entry.durationMinutes ?? 0))
-                                .font(.headline.monospacedDigit().weight(.bold))
-                                .foregroundStyle(.purple)
+                Text("No tracked free time for this date.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            let manualEntries = sync.snapshot.freeTime ?? []
+            if !manualEntries.isEmpty {
+                Text("Other free-time entries").font(.headline)
+                ForEach(manualEntries) { entry in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.label).font(.subheadline.weight(.semibold))
+                            Text(freeTimeDetail(entry)).font(.caption).foregroundStyle(.secondary)
                         }
+                        Spacer()
+                        Text(minutesLabel(entry.durationMinutes ?? 0)).font(.subheadline.monospacedDigit())
                     }
                 }
             }
-
+            if let error = mediaSync.lastError { Text(error).font(.caption).foregroundStyle(.red) }
             if let status = mediaSync.snapshot.status {
-                Text(mediaStatusText(status))
-                    .font(.caption)
-                    .foregroundStyle(mediaStatusIsStale(status) ? .orange : .secondary)
-            } else if let error = mediaSync.lastError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-        }
-        .padding(16)
-        .background(Color.purple.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .task {
-            if mediaSync.snapshot.fetchedAt == .distantPast {
-                await mediaSync.refresh(date: sync.snapshot.date)
+                Text(mediaStatusText(status)).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -460,7 +472,7 @@ struct InsightsView: View {
             }
 
             HStack(spacing: 12) {
-                metricPair(title: "Helped", value: "\(successRate)%", tint: .green)
+                metricPair(title: "Followed by exit", value: "\(successRate)%", tint: TrackerStyle.accent)
                 Divider()
                 metricPair(title: "≤30 sec", value: "\(fast)", tint: .mint)
                 Divider()
@@ -590,14 +602,9 @@ struct InsightsView: View {
                                 .fill(Color.secondary.opacity(0.10))
                                 .frame(height: 70)
 
-                            VStack(spacing: 0) {
-                                Rectangle()
-                                    .fill(Color.red.opacity(0.8))
-                                    .frame(height: mediaBarHeight(day.youtubeMinutes))
-                                Rectangle()
-                                    .fill(Color.blue.opacity(0.8))
-                                    .frame(height: mediaBarHeight(day.xMinutes))
-                            }
+                            Rectangle()
+                                .fill(TrackerStyle.freeTime.opacity(day.date == sync.snapshot.date ? 1 : 0.4))
+                                .frame(height: mediaBarHeight(day.totalMinutes))
                             .clipShape(Capsule())
                         }
                         Text(mediaDayLabel(day.date))
@@ -613,8 +620,7 @@ struct InsightsView: View {
             }
 
             HStack(spacing: 14) {
-                mediaLegend("YouTube", color: .red)
-                mediaLegend("X", color: .blue)
+                mediaLegend("Unique total", color: TrackerStyle.freeTime)
                 Spacer()
                 Text("\(minutesLabel(recentMediaTotalMinutes)) total")
                     .font(.caption.monospacedDigit().weight(.semibold))
@@ -658,7 +664,7 @@ struct InsightsView: View {
 
                     Text(minutesLabel(max(1, Int(ceil(Double(session.durationSeconds) / 60)))))
                         .font(.subheadline.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(TrackerStyle.ink)
                 }
             }
         }
@@ -893,9 +899,6 @@ struct InsightsView: View {
             return false
         }
         return item.status == .done
-            || item.status == .logged
-            || item.stop != nil
-            || item.actualMinutes != nil
     }
 
     private func completedWorkMinutes(for item: ScheduleItem) -> Int {
@@ -1008,7 +1011,7 @@ private struct CoverageInterval {
     let title: String
 }
 
-private struct CoverageGap: Identifiable, Hashable {
+struct CoverageGap: Identifiable, Hashable {
     let date: String
     let start: Int
     let end: Int
@@ -1043,7 +1046,7 @@ private struct CoverageGap: Identifiable, Hashable {
     }
 }
 
-private struct CoverageGapAnalyzer {
+struct CoverageGapAnalyzer {
     let date: String
     let schedule: [ScheduleItem]
     let freeTime: [FreeTimeEntry]
@@ -1256,7 +1259,7 @@ private struct ArcGaugeShape: Shape {
     }
 }
 
-private struct CoverageGapsDetailView: View {
+struct CoverageGapsDetailView: View {
     @Environment(SyncController.self) private var sync
     @Environment(MediaSyncController.self) private var mediaSync
     let date: String
@@ -1470,9 +1473,9 @@ private struct WorkloadDetailView: View {
         List {
             if tasks.isEmpty {
                 ContentUnavailableView(
-                    "Priority workload complete",
+                    "All tasks complete",
                     systemImage: "checkmark.circle",
-                    description: Text("There are no unfinished AP 3+ tasks with estimates.")
+                    description: Text("There are no open tasks for this day.")
                 )
             } else {
                 Section {

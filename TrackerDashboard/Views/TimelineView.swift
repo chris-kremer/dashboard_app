@@ -4,50 +4,46 @@ struct TimelineView: View {
     @Environment(SyncController.self) private var sync
     @Environment(MediaSyncController.self) private var mediaSync
     @State private var selectedTask: ScheduleItem?
+    @State private var showingGaps = false
 
-    private var entries: [TimelineEntry] {
-        var result = sync.snapshot.schedule.compactMap(TimelineEntry.schedule)
-        if let sleep = sync.healthSleep {
+    private func entries(now: Date) -> [TimelineEntry] {
+        var result = sync.snapshot.schedule.filter { $0.date == sync.snapshot.date && $0.status != .cancelled }
+            .compactMap { TimelineEntry.schedule($0, now: now) }
+        if let sleep = sync.healthSleep, sleep.date == sync.snapshot.date {
             result.append(contentsOf: TimelineEntry.healthSleep(sleep))
-        } else if let sleep = sync.snapshot.sleep {
-            result.append(contentsOf: TimelineEntry.sleep(sleep))
-        }
-        let freeTimeEntries = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeTimelineEntries(on: sync.snapshot.date)
-        result.append(contentsOf: TimelineEntry.freeTimeSessions(freeTimeEntries))
+        } else if let sleep = sync.snapshot.sleep { result.append(contentsOf: TimelineEntry.sleep(sleep)) }
+        let freeTime = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeTimelineEntries(on: sync.snapshot.date)
+        result.append(contentsOf: TimelineEntry.freeTimeSessions(freeTime))
         result.append(contentsOf: sync.snapshot.caffeine.compactMap(TimelineEntry.caffeine))
-        return result.sorted { $0.startMinute < $1.startMinute }
+        result.append(contentsOf: sync.snapshot.food.compactMap(TimelineEntry.food))
+        let analyzer = CoverageGapAnalyzer(date: sync.snapshot.date, schedule: sync.snapshot.schedule,
+            freeTime: freeTime, healthSleep: sync.healthSleep, manualSleep: sync.snapshot.sleep, now: now)
+        result.append(contentsOf: analyzer.gaps.map {
+            TimelineEntry(id: "gap:\($0.id)", title: "Unlogged time", subtitle: $0.surroundingContext,
+                startMinute: $0.start, endMinute: $0.end, priorityLevel: 0, kind: .gap, task: nil)
+        })
+        return result.sorted { ($0.startMinute, $0.endMinute, $0.id) < ($1.startMinute, $1.endMinute, $1.id) }
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("Timeline")
-                        .font(.largeTitle.weight(.bold))
-
-                    if entries.isEmpty {
-                        EmptyStateView(title: "No timeline blocks", systemImage: "calendar")
-                            .padding(.top, 40)
-                    } else {
-                        SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
-                            TimelineScaleView(entries: entries, now: context.date) { task in
-                                selectedTask = task
-                            }
-                        }
+                VStack(alignment: .leading, spacing: 22) {
+                    TrackerSectionHeader(title: "Timeline", detail: sync.snapshot.date)
+                    SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
+                        TimelineScaleView(entries: entries(now: context.date), now: context.date, date: sync.snapshot.date,
+                            onSelectTask: { selectedTask = $0 }, onSelectGap: { showingGaps = true })
                     }
                 }
-                .padding(.horizontal)
-                .padding(.top, 18)
-                .padding(.bottom, 32)
+                .padding(20)
             }
-            .background(Color.trackerGroupedBackground)
-            .sheet(item: $selectedTask) { task in
-                EditTaskView(task: task)
-            }
+            .background(TrackerStyle.background)
+            .navigationTitle("").trackerInlineNavigationTitle()
+            .sheet(item: $selectedTask) { EditTaskView(task: $0) }
+            .navigationDestination(isPresented: $showingGaps) { CoverageGapsDetailView(date: sync.snapshot.date) }
+            .refreshable { await sync.refresh(); await mediaSync.refresh(date: sync.snapshot.date) }
             .task {
-                if mediaSync.snapshot.fetchedAt == .distantPast {
-                    await mediaSync.refresh(date: sync.snapshot.date)
-                }
+                if mediaSync.snapshot.fetchedAt == .distantPast { await mediaSync.refresh(date: sync.snapshot.date) }
             }
         }
     }
@@ -56,258 +52,148 @@ struct TimelineView: View {
 private struct TimelineScaleView: View {
     let entries: [TimelineEntry]
     let now: Date
+    let date: String
     let onSelectTask: (ScheduleItem) -> Void
-    @State private var zoom: CGFloat = 1
+    let onSelectGap: () -> Void
+    @State private var selectedID: String?
+    private let lanes = ["Sleep", "Tasks", "Life", "Free", "Gaps"]
 
-    private let rowHeight: CGFloat = 72
-    private let axisWidth: CGFloat = 34
-    private let baseChartWidth: CGFloat = 1680
-    private var chartWidth: CGFloat { baseChartWidth * zoom }
-    private var chartHeight: CGFloat { rowHeight * 8 }
+    private var selected: TimelineEntry? {
+        entries.first { $0.id == selectedID } ?? entries.last { $0.kind.lane != "Gaps" } ?? entries.first
+    }
+    private var isToday: Bool { date == Date.trackerDateFormatter.string(from: now) }
+    private var currentMinute: Int { TrackerTime.minute(Date.trackerTimeFormatter.string(from: now)) ?? 0 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            zoomControls
-            ScrollView(.horizontal, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .top, spacing: 10) {
-                        priorityLabels
-                        ZStack(alignment: .topLeading) {
-                            grid
-                            ForEach(layoutEntries(width: chartWidth)) { item in
-                                timelineBlock(item.entry)
-                                    .frame(width: item.width, height: item.height)
-                                    .offset(x: item.x, y: yOffset(for: item.entry.priorityLevel))
-                            }
-                            nowMarker(height: chartHeight)
-                                .offset(x: xOffset(for: minuteOfDay(now), width: chartWidth))
-                        }
-                        .frame(width: chartWidth, height: chartHeight)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Your whole day").font(.headline)
+                Spacer()
+                Text("00:00–24:00").font(.caption).foregroundStyle(.secondary)
+            }
+            VStack(spacing: 4) {
+                GeometryReader { proxy in
+                    ForEach([0, 6, 12, 18, 24], id: \.self) { hour in
+                        Text(String(format: "%02d", hour)).font(.caption2).foregroundStyle(.secondary)
+                            .position(x: 48 + CGFloat(hour) / 24 * max(0, proxy.size.width - 58), y: 10)
                     }
-                    xAxis
-                        .padding(.leading, axisWidth + 10)
-                }
-                .padding(.bottom, 6)
-            }
-        }
-        .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-
-    private var zoomControls: some View {
-        HStack(spacing: 8) {
-            Text("0-24h")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Spacer()
-            Button {
-                zoom = max(0.55, zoom - 0.15)
-            } label: {
-                Image(systemName: "minus.magnifyingglass")
-            }
-            .disabled(zoom <= 0.55)
-            Button {
-                zoom = min(1.65, zoom + 0.15)
-            } label: {
-                Image(systemName: "plus.magnifyingglass")
-            }
-            .disabled(zoom >= 1.65)
-        }
-        .buttonStyle(.bordered)
-    }
-
-    @ViewBuilder
-    private func timelineBlock(_ entry: TimelineEntry) -> some View {
-        if let task = entry.task {
-            Button {
-                onSelectTask(task)
-            } label: {
-                TimelineBlockView(entry: entry)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open \(task.task)")
-        } else {
-            TimelineBlockView(entry: entry)
-        }
-    }
-
-    private var priorityLabels: some View {
-        VStack(spacing: 0) {
-            ForEach([6, 5, 4, 3, 2, 1, 0, -1], id: \.self) { priority in
-                Text(priority == 6 ? "" : "\(priority)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: axisWidth, height: rowHeight, alignment: .center)
-            }
-        }
-    }
-
-    private var grid: some View {
-        ZStack(alignment: .topLeading) {
-            VStack(spacing: 0) {
-                ForEach(0..<8, id: \.self) { _ in
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.12))
-                        .frame(height: 1)
-                        .frame(maxHeight: .infinity, alignment: .top)
-                        .frame(height: rowHeight)
+                }.frame(height: 22)
+                ForEach(lanes, id: \.self) { lane in laneView(lane) }
+                HStack {
+                    Spacer()
+                    Text(isToday ? "Now \(Date.trackerTimeFormatter.string(from: now))" : date)
+                        .font(.caption).foregroundStyle(TrackerStyle.accent)
                 }
             }
-            HStack(spacing: 0) {
-                ForEach(0...24, id: \.self) { _ in
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.08))
-                        .frame(width: 1, height: chartHeight)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            if let entry = selected {
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack {
+                        Text(entry.kind.lane).font(.caption.weight(.semibold)).foregroundStyle(TrackerStyle.accent)
+                        Spacer()
+                        Button { advance(-1) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                            .accessibilityLabel("Previous entry")
+                        Button { advance(1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
+                            .accessibilityLabel("Next entry")
+                    }.buttonStyle(.plain)
+                    Text(entry.title).font(.headline).fixedSize(horizontal: false, vertical: true)
+                    Text(entry.kind.isPoint ? String(entry.timeRange.prefix(5)) : "\(entry.timeRange) · \(TrackerTime.label(entry.durationMinutes))")
+                        .font(.subheadline.monospacedDigit())
+                    if !entry.subtitle.isEmpty { Text(entry.subtitle).font(.caption).foregroundStyle(.secondary) }
+                    if let task = entry.task {
+                        HStack {
+                            if let priority = task.priority { Text("Priority \(priority)") }
+                            if let estimate = task.estimateMinutes { Text("Est. \(TrackerTime.label(estimate))") }
+                            Spacer()
+                            Button("Edit task") { onSelectTask(task) }.frame(minHeight: 44)
+                        }.font(.caption)
+                    } else if entry.kind.lane == "Gaps" {
+                        Button("Fill missing log", action: onSelectGap).frame(minHeight: 44)
+                    }
                 }
-            }
-        }
-    }
-
-    private var xAxis: some View {
-        HStack(spacing: 0) {
-            ForEach([0, 4, 8, 12, 16, 20, 24], id: \.self) { hour in
-                Text("\(hour)")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: hour == 0 ? .leading : hour == 24 ? .trailing : .center)
-            }
-        }
-        .frame(width: chartWidth)
-    }
-
-    private func layoutEntries(width: CGFloat) -> [TimelineLayoutEntry] {
-        entries.map { entry in
-            return TimelineLayoutEntry(
-                entry: entry,
-                x: xOffset(for: entry.startMinute, width: width),
-                width: max(8, CGFloat(entry.durationMinutes) / CGFloat(24 * 60) * width),
-                height: rowHeight * 0.92
-            )
-        }
-    }
-
-    private func yOffset(for priority: Int) -> CGFloat {
-        let clamped = min(max(priority, -1), 6)
-        return CGFloat(6 - clamped) * rowHeight + rowHeight * 0.04
-    }
-
-    private func xOffset(for minute: Int, width: CGFloat) -> CGFloat {
-        CGFloat(min(max(minute, 0), 24 * 60)) / CGFloat(24 * 60) * width
-    }
-
-    private func nowMarker(height: CGFloat) -> some View {
-        VStack(spacing: 3) {
-            Text("now")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.red)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(.background, in: Capsule())
-            Rectangle()
-                .fill(.red)
-                .frame(width: 2, height: height)
-        }
-        .offset(x: -1, y: -18)
-    }
-
-    private func minuteOfDay(_ date: Date) -> Int {
-        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
-        return (components.hour ?? 0) * 60 + (components.minute ?? 0)
-    }
-}
-
-private struct TimelineBlockView: View {
-    let entry: TimelineEntry
-
-    var body: some View {
-        GeometryReader { proxy in
-            if proxy.size.height < 18 {
-                compactBlock
+                .padding(.horizontal, 16).padding(.bottom, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 22))
+                .accessibilityElement(children: .contain)
+                HStack {
+                    Text("Tap a lane to inspect entries")
+                    Spacer()
+                    Text("\((entries.firstIndex { $0.id == entry.id } ?? 0) + 1) / \(entries.count)")
+                }.font(.caption2).foregroundStyle(.secondary)
             } else {
-                fullBlock
+                EmptyStateView(title: "No timeline entries", systemImage: "calendar")
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(0.22), lineWidth: 1)
         }
     }
 
-    private var compactBlock: some View {
-        RoundedRectangle(cornerRadius: 5, style: .continuous)
-            .fill(entry.color.opacity(0.55))
-            .overlay(alignment: .leading) {
-                Rectangle()
-                    .fill(entry.color)
-                    .frame(width: 4)
-            }
+    private func laneView(_ lane: String) -> some View {
+        let members = entries.filter { $0.kind.lane == lane }
+        let tracks = TrackerTime.laneAssignments(members.map { $0.startMinute..<$0.endMinute })
+        let trackCount = max(1, (tracks.max() ?? 0) + 1)
+        return HStack(spacing: 6) {
+            Text(lane).font(.caption).foregroundStyle(.secondary).frame(width: 40, alignment: .leading)
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.06)).padding(.vertical, 5)
+                    ForEach([0, 6, 12, 18, 24], id: \.self) { hour in
+                        Rectangle().fill(Color.secondary.opacity(0.08))
+                            .frame(width: 1, height: 34).offset(x: CGFloat(hour) / 24 * max(0, width - 1), y: 5)
+                    }
+                    ForEach(Array(members.enumerated()), id: \.element.id) { index, entry in
+                        entryMark(entry, track: tracks[index], count: trackCount, width: width)
+                    }
+                    if isToday {
+                        Rectangle().fill(TrackerStyle.accent.opacity(0.55))
+                            .frame(width: 1, height: 44).offset(x: CGFloat(currentMinute) / 1440 * width)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture(coordinateSpace: .local) { point in
+                    let minute = Double(point.x / max(width, 1)) * 1440
+                    let track = max(0, min(trackCount - 1, Int((point.y - 8) / (28 / CGFloat(trackCount)))))
+                    selectedID = members.enumerated().min { a, b in
+                        distance(a.element, minute: minute, track: tracks[a.offset], selectedTrack: track)
+                            < distance(b.element, minute: minute, track: tracks[b.offset], selectedTrack: track)
+                    }?.element.id
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(lane), \(members.count) entries")
+                .accessibilityValue(selected.map { $0.kind.lane == lane ? "\($0.title), \($0.timeRange)" : "" } ?? "")
+                .accessibilityAction {
+                    selectedID = members.first?.id
+                }
+                .accessibilityAdjustableAction { direction in
+                    guard !members.isEmpty else { return }
+                    let index = members.firstIndex { $0.id == selectedID } ?? 0
+                    let delta = direction == .increment ? 1 : -1
+                    selectedID = members[(index + delta + members.count) % members.count].id
+                }
+            }.frame(height: 44)
+        }
     }
 
-    private var fullBlock: some View {
-#if os(macOS)
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Circle()
-                .fill(entry.color)
-                .frame(width: 7, height: 7)
-            Text(entry.title)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-            if !entry.subtitle.isEmpty {
-                Text(entry.subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(entry.color.opacity(0.16), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(entry.color)
-                .frame(width: 4)
-        }
-#else
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(entry.color)
-                    .frame(width: 7, height: 7)
-                Text(entry.title)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-            }
-            if !entry.subtitle.isEmpty {
-                Text(entry.subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(entry.color.opacity(0.16), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(entry.color)
-                .frame(width: 4)
-        }
-#endif
+    private func distance(_ entry: TimelineEntry, minute: Double, track: Int, selectedTrack: Int) -> Double {
+        max(Double(entry.startMinute) - minute, minute - Double(entry.endMinute), 0)
+            + (track == selectedTrack ? 0 : 0.5)
     }
-}
 
-private struct TimelineLayoutEntry: Identifiable {
-    let entry: TimelineEntry
-    let x: CGFloat
-    let width: CGFloat
-    let height: CGFloat
+    private func entryMark(_ entry: TimelineEntry, track: Int, count: Int, width: CGFloat) -> some View {
+        let x: CGFloat = CGFloat(entry.startMinute) / 1440.0 * width
+        let slotHeight: CGFloat = 28.0 / CGFloat(count)
+        let naturalWidth: CGFloat = CGFloat(entry.durationMinutes) / 1440.0 * width
+        let markWidth: CGFloat = min(max(2.0, naturalWidth), max(0.0, width - x))
+        let opacity: Double = selected?.id == entry.id ? 1.0 : 0.65
+        return RoundedRectangle(cornerRadius: 3)
+            .fill(entry.color.opacity(opacity))
+            .frame(width: markWidth, height: max(1.0, slotHeight - 1.0))
+            .offset(x: x, y: 8.0 + CGFloat(track) * slotHeight)
+    }
 
-    var id: String { entry.id }
+    private func advance(_ delta: Int) {
+        guard !entries.isEmpty else { return }
+        let index = entries.firstIndex { $0.id == selected?.id } ?? 0
+        selectedID = entries[(index + delta + entries.count) % entries.count].id
+    }
 }
 
 private struct TimelineEntry: Identifiable {
@@ -328,9 +214,11 @@ private struct TimelineEntry: Identifiable {
         startMinute < other.endMinute && other.startMinute < endMinute
     }
 
-    static func schedule(_ item: ScheduleItem) -> TimelineEntry? {
+    static func schedule(_ item: ScheduleItem, now: Date) -> TimelineEntry? {
         guard let start = minutes(item.start) else { return nil }
-        let fallbackEnd = item.estimateMinutes.map { start + $0 } ?? start + max(item.actualMinutes ?? 30, 30)
+        let fallbackEnd = item.date == Date.trackerDateFormatter.string(from: now) && item.status == .inProgress
+            ? (minutes(Date.trackerTimeFormatter.string(from: now)) ?? start)
+            : start + max(item.actualMinutes ?? 0, 1)
         let end = minutes(item.stop) ?? fallbackEnd
         return TimelineEntry(
             id: item.id,
@@ -339,7 +227,7 @@ private struct TimelineEntry: Identifiable {
             startMinute: start,
             endMinute: min(max(end, start + 1), 24 * 60),
             priorityLevel: item.priority ?? 0,
-            kind: .schedule(priority: item.priority ?? 0),
+            kind: item.isFreeTimeCategory ? .freeTime : .schedule(priority: item.priority ?? 0),
             task: item
         )
     }
@@ -349,7 +237,6 @@ private struct TimelineEntry: Identifiable {
         guard let end = minutes(item.actualWake ?? item.plannedWake ?? item.alarmTime) else { return [] }
         if end < start {
             return [
-                sleepEntry(item, start: start, end: 24 * 60, suffix: "late"),
                 sleepEntry(item, start: 0, end: max(end, 30), suffix: "early")
             ]
         }
@@ -387,7 +274,6 @@ private struct TimelineEntry: Identifiable {
 
         if !Calendar.current.isDate(firstStart, inSameDayAs: lastEnd) || end < start {
             return [
-                healthSleepEntry(session, start: start, end: 24 * 60, suffix: "late"),
                 healthSleepEntry(session, start: 0, end: max(end, 30), suffix: "early")
             ]
         }
@@ -464,11 +350,18 @@ private struct TimelineEntry: Identifiable {
             title: item.label,
             subtitle: "Coffee",
             startMinute: start,
-            endMinute: min(start + 120, 24 * 60),
+            endMinute: min(start + 1, 24 * 60),
             priorityLevel: 6,
             kind: .caffeine,
             task: nil
         )
+    }
+
+    static func food(_ item: FoodEntry) -> TimelineEntry? {
+        guard let start = minutes(item.time), start < 1440 else { return nil }
+        return TimelineEntry(id: "food:\(item.id)", title: item.item,
+            subtitle: [item.mealContext, item.amount, item.location, item.notes].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "),
+            startMinute: start, endMinute: min(start + 1, 1440), priorityLevel: 0, kind: .food, task: nil)
     }
 
     private static func minutes(_ value: String?) -> Int? {
@@ -479,7 +372,7 @@ private struct TimelineEntry: Identifiable {
     }
 
     private static func timeString(_ minute: Int) -> String {
-        String(format: "%02d:%02d", min(minute / 60, 23), minute % 60)
+        String(format: "%02d:%02d", min(minute / 60, 24), minute % 60)
     }
 
     enum Kind {
@@ -487,7 +380,23 @@ private struct TimelineEntry: Identifiable {
         case freeTime
         case mediaFreeTime
         case caffeine
+        case food
+        case gap
         case schedule(priority: Int)
+
+        var lane: String {
+            switch self {
+            case .sleep: "Sleep"
+            case .freeTime, .mediaFreeTime: "Free"
+            case .caffeine, .food: "Life"
+            case .gap: "Gaps"
+            case .schedule: "Tasks"
+            }
+        }
+
+        var isPoint: Bool {
+            switch self { case .food, .caffeine: true; default: false }
+        }
 
         var isMediaFreeTime: Bool {
             if case .mediaFreeTime = self { return true }
@@ -497,28 +406,17 @@ private struct TimelineEntry: Identifiable {
         var color: Color {
             switch self {
             case .sleep:
-                return .blue
+                return TrackerStyle.sleep
             case .freeTime:
-                return .red
+                return TrackerStyle.freeTime
             case .mediaFreeTime:
-                return .red
-            case .caffeine:
-                return .gray
-            case let .schedule(priority):
-                switch priority {
-                case 5...:
-                    return .trackerDarkGreen
-                case 4:
-                    return .green
-                case 3:
-                    return Color(red: 0.55, green: 0.82, blue: 0.35)
-                case 2:
-                    return .yellow
-                case 1:
-                    return .orange
-                default:
-                    return .white
-                }
+                return TrackerStyle.freeTime
+            case .caffeine, .food:
+                return TrackerStyle.life
+            case .gap:
+                return .secondary
+            case .schedule:
+                return TrackerStyle.accent
             }
         }
     }

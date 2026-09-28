@@ -39,294 +39,193 @@ final class AppNavigation {
 
 struct TodayView: View {
     @Environment(SyncController.self) private var sync
+    @Environment(MediaSyncController.self) private var mediaSync
     @Environment(AppNavigation.self) private var navigation
-    @State private var viewModel = TodayViewModel()
     @State private var showingAddTask = false
     @State private var showingCaffeine = false
     @State private var showingFood = false
-    @State private var refreshMessage: String?
+    @State private var showingSleep = false
+    @State private var busyTasks = Set<String>()
+
+    private var currentTasks: [ScheduleItem] {
+        sync.snapshot.todayOpenTasks.filter {
+            guard let start = $0.dateTime(from: $0.start), start <= Date() else { return false }
+            return $0.stop == nil || $0.status == .inProgress
+        }
+            .sorted { ($0.stop == nil ? 0 : 1, $0.start ?? "") < ($1.stop == nil ? 0 : 1, $1.start ?? "") }
+    }
+    private var upcoming: [ScheduleItem] {
+        let currentIDs = Set(currentTasks.map(\.id))
+        return Array(sync.snapshot.todayOpenTasks.filter { !currentIDs.contains($0.id) }.prefix(3))
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if let refreshMessage {
-                        refreshConfirmation(refreshMessage)
+                VStack(alignment: .leading, spacing: 24) {
+                    SwiftUI.TimelineView(.periodic(from: .now, by: 1)) { context in
+                        if currentTasks.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Ready when you are").font(.title2.weight(.semibold))
+                                Text("Start a task below, or add something to your day.")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(22)
+                            .background(TrackerStyle.soft, in: RoundedRectangle(cornerRadius: 26))
+                        } else {
+                            VStack(spacing: 12) {
+                                ForEach(currentTasks) { task in currentTask(task, now: context.date) }
+                            }
+                        }
                     }
-                    nowNextCards
-                    quickActions
-                    topTasks
-                    loggedToday
+                    daySummary
+                    if !upcoming.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("Up next").font(.headline)
+                                Spacer()
+                                Button("All tasks") { navigation.selectedSection = .tasks }.font(.caption)
+                            }
+                            ForEach(Array(upcoming.enumerated()), id: \.element.id) { index, task in
+                                TaskRowView(task: task, rank: index + 1, compact: true)
+                                if index < upcoming.count - 1 { Divider() }
+                            }
+                        }
+                    }
+                    if let error = sync.syncState.lastError {
+                        Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
+                    }
+                }.padding(20)
+            }
+            .background(TrackerStyle.background)
+            .navigationTitle("").trackerInlineNavigationTitle()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Menu {
+                    Button("Task / activity", systemImage: "plus") { showingAddTask = true }
+                    Button("Coffee", systemImage: "cup.and.saucer") { showingCaffeine = true }
+                    Button("Meal", systemImage: "fork.knife") { showingFood = true }
+                    Button("Sleep", systemImage: "bed.double") { showingSleep = true }
+                } label: {
+                    Label("Add", systemImage: "plus").font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 20).frame(minHeight: 44)
+                        .background(TrackerStyle.surface, in: Capsule())
                 }
-                .padding()
+                .padding(.vertical, 8).frame(maxWidth: .infinity).background(TrackerStyle.background)
             }
-            .navigationTitle("")
-            .refreshable {
-                await refreshToday()
-            }
+            .refreshable { await sync.refresh(); await mediaSync.refresh(date: sync.snapshot.date) }
             .sheet(isPresented: $showingAddTask) { AddTaskView() }
             .sheet(isPresented: $showingCaffeine) { LogCaffeineView() }
             .sheet(isPresented: $showingFood) { LogFoodView() }
+            .sheet(isPresented: $showingSleep) { NavigationStack { SleepEditView() } }
         }
     }
 
-    private func refreshToday() async {
-        await sync.refresh()
-        let message = sync.syncState.lastError == nil
-            ? "Updated \(Date.now.formatted(date: .omitted, time: .shortened))"
-            : "Refresh failed"
-        await MainActor.run {
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) {
-                refreshMessage = message
-            }
-        }
-        try? await Task.sleep(for: .seconds(2))
-        await MainActor.run {
-            withAnimation(.easeOut(duration: 0.2)) {
-                refreshMessage = nil
-            }
-        }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(Date.now, format: .dateTime.weekday(.wide).day().month(.wide))
-                .font(.title.bold())
-            if let sleepSummary {
-                Text(sleepSummary)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var sleepSummary: String? {
-        if let sleep = sync.healthSleep {
-            return "Sleep \(String(format: "%.1f", sleep.sleepHours))h\(sleep.actualWake.map { " • woke \($0)" } ?? "") • HealthKit"
-        }
-        if let sleep = sync.snapshot.sleep, let hours = sleep.sleepHours {
-            return "Sleep \(String(format: "%.1f", hours))h\(sleep.actualWake.map { " • woke \($0)" } ?? "")"
-        }
-        return nil
-    }
-
-    private func refreshConfirmation(_ message: String) -> some View {
-        Label(message, systemImage: message == "Refresh failed" ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(message == "Refresh failed" ? .orange : .green)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.thinMaterial, in: Capsule())
-            .transition(.move(edge: .top).combined(with: .opacity))
-    }
-
-    private var nowNextCards: some View {
-        SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
-            VStack(spacing: 8) {
-                let current = viewModel.currentBlocks(in: sync.snapshot, now: context.date)
-                currentActivitiesCard(current)
-
-                let next = viewModel.nextBlock(in: sync.snapshot, now: context.date)
-                if let next {
-                    compactStatusCard(
-                        title: "Next",
-                        systemImage: "arrow.forward.circle",
-                        value: nextActivityText(next),
-                        detail: next.category
-                    )
-                }
-            }
-        }
-    }
-
-    private func activeActivityText(_ item: ScheduleItem) -> String {
-        if let stop = item.stop {
-            return "\(item.task) until \(stop)"
-        }
-        if let start = item.start {
-            return "\(item.task) since \(start)"
-        }
-        return item.task
-    }
-
-    private func nextActivityText(_ item: ScheduleItem) -> String {
-        if let start = item.start ?? item.plannedStart {
-            return "\(item.task) \(start)"
-        }
-        return item.task
-    }
-
-    private func currentActivitiesCard(_ items: [ScheduleItem]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(items.count > 1 ? "Now happening" : "Now", systemImage: "clock")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            if items.isEmpty {
-                Text("No active block")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ForEach(items.prefix(4)) { item in
-                    activeActivityRow(item)
-                }
-                if items.count > 4 {
-                    Text("+ \(items.count - 4) more")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private func activeActivityRow(_ item: ScheduleItem) -> some View {
-        Button {
-            navigation.selectedSection = .tasks
-            navigation.selectedTask = item
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Circle()
-                    .fill(item.stop == nil ? Color.green : Color.blue)
-                    .frame(width: 7, height: 7)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(activeActivityText(item))
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    if !item.category.isEmpty {
-                        Text(item.category)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func compactStatusCard(title: String, systemImage: String, value: String, detail: String?) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Label(title, systemImage: systemImage)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 56, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.headline)
-                    .lineLimit(1)
-                if let detail, !detail.isEmpty {
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private var quickActions: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-            quickActionButton(title: "Task", subtitle: "Add to-do", systemImage: "plus.circle.fill", tint: .blue) {
-                showingAddTask = true
-            }
-            quickActionButton(title: "Coffee", subtitle: "Caffeine", systemImage: "cup.and.saucer.fill", tint: .brown) {
-                showingCaffeine = true
-            }
-            quickActionButton(title: "Meal", subtitle: "Food log", systemImage: "fork.knife.circle.fill", tint: .green) {
-                showingFood = true
-            }
-            NavigationLink {
-                SleepEditView()
-            } label: {
-                quickActionLabel(title: "Sleep", subtitle: "Night record", systemImage: "bed.double.fill", tint: .indigo)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.vertical, 2)
-    }
-
-    private func quickActionButton(
-        title: String,
-        subtitle: String,
-        systemImage: String,
-        tint: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            quickActionLabel(title: title, subtitle: subtitle, systemImage: systemImage, tint: tint)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func quickActionLabel(title: String, subtitle: String, systemImage: String, tint: Color) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
-                .frame(width: 28, height: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-        .padding(.horizontal, 12)
-        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(tint.opacity(0.18), lineWidth: 1)
-        }
-    }
-
-    private var topTasks: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Top To-Dos")
-                .font(.headline)
-            let tasks = Array(viewModel.sortedOpenTasks(in: sync.snapshot).prefix(10))
-            if tasks.isEmpty {
-                EmptyStateView(title: "No open tasks", systemImage: "checkmark.circle")
-            } else {
-                ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
-                    TaskRowView(task: task, rank: index + 1, compact: true)
-                }
-            }
-        }
-    }
-
-    private var loggedToday: some View {
-        DashboardCard {
-            Text("Logged Today")
-                .font(.headline)
+    private func currentTask(_ task: ScheduleItem, now: Date) -> some View {
+        let isPaused = task.stop != nil
+        let elapsed = max(0, Int((task.dateTime(from: task.stop) ?? now).timeIntervalSince(task.dateTime(from: task.start) ?? now)))
+        return VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Label("\(sync.snapshot.caffeine.count)", systemImage: "cup.and.saucer")
-                Label("\(sync.snapshot.food.count)", systemImage: "fork.knife")
-                if let hours = sync.healthSleep?.sleepHours {
-                    Label("\(hours, specifier: "%.1f")h", systemImage: "bed.double")
-                } else if let hours = sync.snapshot.sleep?.sleepHours {
-                    Label("\(hours, specifier: "%.1f")h", systemImage: "bed.double")
+                Label(isPaused ? "PAUSED" : "IN PROGRESS", systemImage: isPaused ? "pause.fill" : "circle.fill")
+                    .font(.caption2.weight(.semibold)).foregroundStyle(TrackerStyle.accent)
+                Spacer()
+                Button {
+                    navigation.selectedTask = task
+                    navigation.selectedSection = .tasks
+                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                .accessibilityLabel("Edit \(task.task)")
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                Text(task.category).font(.caption).foregroundStyle(TrackerStyle.accent)
+                Text(task.task).font(.title2.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(alignment: .firstTextBaseline) {
+                Text(String(format: "%d:%02d", elapsed / 60, elapsed % 60))
+                    .font(.system(.largeTitle, design: .rounded).weight(.regular)).monospacedDigit()
+                Spacer()
+                if let estimate = task.estimateMinutes {
+                    Text("of \(TrackerTime.label(estimate)) estimated").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .foregroundStyle(.secondary)
+            if let estimate = task.estimateMinutes, estimate > 0 {
+                ProgressView(value: min(Double(elapsed) / Double(estimate * 60), 1)).tint(TrackerStyle.accent)
+            }
+            HStack(spacing: 10) {
+                Button {
+                    perform(task) { if isPaused { await sync.startTask(task) } else { await sync.stopTask(task) } }
+                } label: {
+                    Label(isPaused ? "Resume" : "Pause", systemImage: isPaused ? "play.fill" : "pause.fill")
+                        .frame(maxWidth: .infinity, minHeight: 44).background(TrackerStyle.surface, in: Capsule())
+                }
+                Button { perform(task) { await sync.completeTask(task) } } label: {
+                    Label("Finish task", systemImage: "checkmark").frame(maxWidth: .infinity, minHeight: 44)
+                        .background(TrackerStyle.accent, in: Capsule()).foregroundStyle(TrackerStyle.background)
+                }
+            }
+            .font(.subheadline.weight(.semibold)).buttonStyle(.plain).disabled(busyTasks.contains(task.id))
         }
+        .padding(22).background(TrackerStyle.soft, in: RoundedRectangle(cornerRadius: 26))
+    }
+
+    private func perform(_ task: ScheduleItem, action: @escaping () async -> Void) {
+        guard !busyTasks.contains(task.id) else { return }
+        busyTasks.insert(task.id)
+        Task { await action(); busyTasks.remove(task.id) }
+    }
+
+    private var daySummary: some View {
+        SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
+            let analyzer = CoverageGapAnalyzer(date: sync.snapshot.date, schedule: sync.snapshot.schedule,
+                freeTime: (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeEntries(on: sync.snapshot.date),
+                healthSleep: sync.healthSleep, manualSleep: sync.snapshot.sleep, now: context.date)
+            let total = max(1, analyzer.coverageEndMinute)
+            let productive = min(sync.snapshot.productiveMinutes(now: context.date), analyzer.loggedMinutes)
+            let gaps = max(0, total - analyzer.loggedMinutes)
+            let productiveSet = Set(sync.snapshot.productiveIntervals(now: context.date).flatMap { Array($0) })
+            let freeSet = Set(TrackerTime.freeTimeIntervals((sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeEntries(on: sync.snapshot.date), limit: total).flatMap { Array($0) })
+            let free = min(max(0, analyzer.loggedMinutes - productive), freeSet.subtracting(productiveSet).count)
+            VStack(alignment: .leading, spacing: 15) {
+                HStack {
+                    Text("Your day, so far").font(.headline)
+                    Spacer()
+                    Text("Since 00:00").font(.caption).foregroundStyle(.secondary)
+                }
+                HStack(alignment: .top) {
+                    dayMetric(TrackerTime.label(productive), "Productive time")
+                    Spacer()
+                    dayMetric("\(sync.snapshot.finishedTaskCount)", "Tasks finished")
+                    Spacer()
+                    Button {
+                        navigation.selectedSection = .insights
+                        navigation.showingCoverageGaps = true
+                    } label: { dayMetric("\(Int(Double(analyzer.loggedMinutes) / Double(total) * 100))%", "Logged ›") }
+                    .buttonStyle(.plain)
+                }
+                GeometryReader { geometry in
+                    HStack(spacing: 2) {
+                        Rectangle().fill(TrackerStyle.accent).frame(width: max(0, geometry.size.width - 6) * Double(productive) / Double(total))
+                        Rectangle().fill(TrackerStyle.life).frame(width: max(0, geometry.size.width - 6) * Double(max(0, analyzer.loggedMinutes - productive - free)) / Double(total))
+                        Rectangle().fill(TrackerStyle.freeTime).frame(width: max(0, geometry.size.width - 6) * Double(free) / Double(total))
+                        Rectangle().fill(Color.secondary.opacity(0.18))
+                    }.clipShape(Capsule())
+                }
+                .frame(height: 8)
+                .accessibilityLabel("\(TrackerTime.label(productive)) productive, \(TrackerTime.label(gaps)) unlogged")
+                HStack {
+                    legend("Productive", TrackerStyle.accent)
+                    legend("Other & sleep", TrackerStyle.life)
+                    legend("Free time", TrackerStyle.freeTime)
+                    legend("Unlogged", .secondary.opacity(0.3))
+                }.font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
+    private func dayMetric(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(value).font(.title3.weight(.medium)).monospacedDigit()
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+    private func legend(_ title: String, _ color: Color) -> some View {
+        HStack(spacing: 4) { Circle().fill(color).frame(width: 5, height: 5); Text(title) }
     }
 }

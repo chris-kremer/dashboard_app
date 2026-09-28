@@ -15,7 +15,8 @@ struct TaskRowView: View {
         SwiftUI.TimelineView(.periodic(from: .now, by: 15)) { context in
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
                 .background {
                     progressBackground(now: context.date)
                 }
@@ -23,7 +24,7 @@ struct TaskRowView: View {
         .sheet(isPresented: $editing) {
             EditTaskView(task: task)
         }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button {
                 Task { await sync.snoozeTask(task) }
             } label: {
@@ -31,7 +32,7 @@ struct TaskRowView: View {
             }
             .tint(.blue)
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
                 Task { await sync.deleteTask(task) }
             } label: {
@@ -41,49 +42,47 @@ struct TaskRowView: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .center, spacing: 4) {
+            Button { editing = true } label: {
+                VStack(alignment: .leading, spacing: 5) {
                     Text(task.task)
-                        .font(compact ? .headline : .title3.weight(.semibold))
-                    if !task.category.isEmpty {
-                        Text(task.category)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(TrackerStyle.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(metadata)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 12)
-                PriorityChip(value: rank, colorValue: task.adjustedPriority)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
             }
-
-            HStack(spacing: 8) {
-                if let estimate = task.estimateMinutes {
-                    Label("\(estimate)m", systemImage: "timer")
-                }
-                if let priority = task.priority {
-                    Label("P\(priority)", systemImage: "flag")
-                }
-                if let startedAt = taskStartDate() ?? startedAtOverride {
-                    Label(elapsedText(since: startedAt, until: stoppedAtOverride ?? task.dateTime(from: task.stop)), systemImage: stoppedAtOverride == nil && task.stop == nil ? "clock" : "pause.circle")
-                }
-                Spacer()
+            .buttonStyle(.plain)
+            .accessibilityHint("Edit task, notes and scheduling")
+            startStopButton
+            Menu {
+                Button("Mark done", systemImage: "checkmark") { trigger(.done) }
+                Button("Edit task", systemImage: "pencil") { editing = true }
+                Button("Snooze 2 hours", systemImage: "clock.arrow.circlepath") { Task { await sync.snoozeTask(task) } }
+                Button("Delete", systemImage: "trash", role: .destructive) { Task { await sync.deleteTask(task) } }
+            } label: {
+                Image(systemName: "ellipsis").frame(width: 44, height: 44)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            HStack {
-                actionButton(.done)
-                startStopButton
-                if !compact {
-                    Button {
-                        editing = true
-                    } label: {
-                        Image(systemName: "pencil")
-                    }
-                    .accessibilityLabel("Edit task")
-                }
-            }
+            .accessibilityLabel("More actions for \(task.task)")
         }
+    }
+
+    private var metadata: String {
+        var parts: [String] = []
+        if let rank { parts.append("#\(rank)") }
+        if let priority = task.priority { parts.append("P\(priority)") }
+        if let adjusted = task.adjustedPriority { parts.append("AP \(adjusted)") }
+        if !task.category.isEmpty { parts.append(task.category) }
+        if let estimate = task.estimateMinutes { parts.append(TrackerTime.label(estimate)) }
+        if let startedAt = taskStartDate() ?? startedAtOverride {
+            parts.append(elapsedText(since: startedAt, until: stoppedAtOverride ?? task.dateTime(from: task.stop)))
+        } else if let planned = task.plannedStart { parts.append(planned) }
+        return parts.joined(separator: " · ")
     }
 
     private var startStopButton: some View {
@@ -98,17 +97,14 @@ struct TaskRowView: View {
         } label: {
             actionLabel(action, isActive: isActive)
             .font(.headline)
-            .foregroundStyle(isActive ? .white : action.tint)
-            .frame(minWidth: action == .done ? 86 : 44, minHeight: 40)
-            .background(isActive ? action.tint : action.tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(action.tint.opacity(isActive ? 0 : 0.18), lineWidth: 1)
-            }
+            .foregroundStyle(TrackerStyle.accent)
+            .frame(minWidth: 44, minHeight: 44)
+            .background(isActive ? TrackerStyle.soft : .clear, in: Capsule())
             .scaleEffect(isActive ? 1.07 : 1)
             .symbolEffect(.bounce, value: activeAction)
         }
         .buttonStyle(.plain)
+        .disabled(activeAction != nil)
         .accessibilityLabel(action.accessibilityLabel)
     }
 
@@ -159,17 +155,14 @@ struct TaskRowView: View {
             let progress = progressState(now: now)
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(.thinMaterial)
+                    .fill(isRunning ? TrackerStyle.soft : .clear)
                 if let doneFillFraction {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color.green.opacity(0.34))
                         .frame(width: proxy.size.width * doneFillFraction)
                         .animation(.easeOut(duration: 0.32), value: doneFillFraction)
                 } else if let progress {
-                    phaseFill(color: .green, fraction: progress.greenFraction, width: proxy.size.width)
-                    phaseFill(color: .yellow, fraction: progress.yellowFraction, width: proxy.size.width)
-                    phaseFill(color: .orange, fraction: progress.orangeFraction, width: proxy.size.width)
-                    phaseFill(color: .red, fraction: progress.redFraction, width: proxy.size.width)
+                    phaseFill(color: TrackerStyle.accent, fraction: progress.greenFraction, width: proxy.size.width)
                 }
             }
         }
@@ -238,7 +231,7 @@ struct TaskRowView: View {
         if startedAtOverride != nil && stoppedAtOverride == nil {
             return true
         }
-        return task.start != nil && task.stop == nil
+        return (taskStartDate().map { $0 <= Date() } ?? false) && task.stop == nil
     }
 }
 

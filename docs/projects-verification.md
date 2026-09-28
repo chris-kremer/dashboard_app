@@ -28,6 +28,10 @@
 - Disposable iPhone 16e / iOS 18.3: visually checked project overview, two nested group levels, Today breadcrumbs, and complete bottom navigation in light/dark and larger text sizes. Fictional fixtures only.
 - Project create form renders correctly; simulator accessibility omits some native navigation controls, so form persistence is covered by API/storage tests rather than claiming a completed UI save test.
 
-## Release gate
+## Release verification — September 28, 2026
 
-Deploy and verify the Worker before pushing the app release to main / TestFlight. Cloudflare authorization expired during this implementation; no production deployment has been claimed. Check U's identity-column contract and authenticated `/projects` after authorization, then release the app.
+- Cloudflare authorization renewed. Worker version `60aa6f3a-dfcc-4eac-9784-a4538eb1bc2a` deployed at 13:10 UTC; deployment listing confirms 100% traffic.
+- Public `/health` returns HTTP 200 with `ok: true`; unauthenticated `/projects` returns HTTP 401.
+- The private live-data check remains unverified: Chris approved a read-only check using the app's Keychain token, but no readable token exists in this Mac's Keychain. No credential was displayed/saved and no production task/project fixtures were written. Column U's live contents have not been independently inspected; write-time collision safeguards remain enabled.
+- Signed release archive `3.1 (14)` succeeded. TestFlight upload status is tracked in the task's release output, not inferred from archive success.
+- Merc must preserve `task_id` in column U during rollover. The handoff instructions are part of this commit.

@@ -104,6 +104,17 @@ struct LocalTestStoreTests {
         check(suggestion?.useCount == 3 && suggestion?.priority == 3 && suggestion?.estimateMinutes == 20, "Normalized history uses most common values")
         let otherDate = try await api.fetchSnapshot(date: "2000-01-01")
         check(otherDate.schedule.isEmpty && otherDate.food.isEmpty && otherDate.sleep == nil, "Daily data is date-filtered")
+        let pastDate = "2000-01-02"
+        let pastTask = try await api.createTask(CreateTaskRequest(date: pastDate, task: "Historical task", category: "personal", priority: 2, estimateMinutes: 15))
+        _ = try await api.updateTask(rowNumber: pastTask.rowNumber, patch: TaskPatchRequest(start: "11:00", stop: "11:15", status: .done))
+        _ = try await api.logFood(FoodRequest(date: pastDate, time: "12:00", mealContext: "Lunch", item: "Past meal"))
+        _ = try await api.logCaffeine(CaffeineRequest(date: pastDate, label: "Tea", time: "09:00"))
+        _ = try await api.upsertSleep(SleepRequest(date: pastDate, sleepHours: 8, actualWake: "07:00"))
+        let past = try await api.fetchSnapshot(date: pastDate)
+        check(past.date == pastDate && past.schedule.count == 1 && past.productiveMinutes() == 15, "Historical timeline returns the requested day's actual task intervals")
+        check(past.food.first?.item == "Past meal" && past.caffeine.first?.label == "Tea" && past.sleep?.actualWake == "07:00", "Historical daily logs stay date-scoped")
+        let currentAfterHistory = try await api.fetchSnapshot(date: date)
+        check(currentAfterHistory.schedule == history.schedule && currentAfterHistory.food == history.food && currentAfterHistory.sleep == history.sleep, "Browsing a past snapshot leaves today's records unchanged")
 
         async let a = api.createTask(CreateTaskRequest(date: date, task: "Concurrent A", category: "personal"))
         async let b = reopened.createTask(CreateTaskRequest(date: date, task: "Concurrent B", category: "personal"))

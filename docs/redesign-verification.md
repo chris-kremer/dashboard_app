@@ -36,3 +36,16 @@ Build both the iPhone target and widget using the TrackerDashboard scheme.
 On a fresh test-mode simulator check all five tabs, start/pause/resume/finish,
 task editing and search, timeline selection, Insights drill-downs, and dark mode.
 Test large text with long task titles; rows must wrap instead of clipping.
+
+## Historical Timeline (build 12)
+
+- Previous/next-day buttons, a bounded date picker, and a Today shortcut.
+- Past snapshots are loaded directly without updating the shared current-day
+  controller, widget cache, reminders, or workout importer.
+- Past Health sleep is queried for the selected date; test mode never queries
+  Health or production services. Browser sessions remain date-filtered.
+- Historical entries are view-only. Errors offer Retry; a failed request never
+  substitutes today's records. Cancelled/stale date loads cannot replace a newer
+  selection, and entry selection resets when the displayed date changes.
+- Regression tests cover historical task, meal, caffeine and sleep records and
+  verify that fetching them leaves today's records unchanged.

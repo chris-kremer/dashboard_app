@@ -5,19 +5,37 @@ struct TimelineView: View {
     @Environment(MediaSyncController.self) private var mediaSync
     @State private var selectedTask: ScheduleItem?
     @State private var showingGaps = false
+    @State private var selectedDate = Date()
+    @State private var historicalSnapshot: TrackerSnapshot?
+    @State private var historicalSleep: HealthSleepEntry?
+    @State private var loading = false
+    @State private var loadError: String?
+    @State private var sleepWarning: String?
+    @State private var requestID = UUID()
 
-    private func entries(now: Date) -> [TimelineEntry] {
-        var result = sync.snapshot.schedule.filter { $0.date == sync.snapshot.date && $0.status != .cancelled }
+    private var dateKey: String { Date.trackerDateFormatter.string(from: selectedDate) }
+    private var isToday: Bool { Calendar.current.isDateInToday(selectedDate) }
+    private var displayedSnapshot: TrackerSnapshot? {
+        if isToday, sync.snapshot.date == dateKey { return sync.snapshot }
+        return historicalSnapshot?.date == dateKey ? historicalSnapshot : nil
+    }
+    private var displayedSleep: HealthSleepEntry? {
+        if isToday, sync.healthSleep?.date == dateKey { return sync.healthSleep }
+        return historicalSleep?.date == dateKey ? historicalSleep : nil
+    }
+
+    private func entries(snapshot: TrackerSnapshot, now: Date) -> [TimelineEntry] {
+        var result = snapshot.schedule.filter { $0.date == dateKey && $0.status != .cancelled }
             .compactMap { TimelineEntry.schedule($0, now: now) }
-        if let sleep = sync.healthSleep, sleep.date == sync.snapshot.date {
+        if let sleep = displayedSleep {
             result.append(contentsOf: TimelineEntry.healthSleep(sleep))
-        } else if let sleep = sync.snapshot.sleep { result.append(contentsOf: TimelineEntry.sleep(sleep)) }
-        let freeTime = (sync.snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeTimelineEntries(on: sync.snapshot.date)
+        } else if let sleep = snapshot.sleep { result.append(contentsOf: TimelineEntry.sleep(sleep)) }
+        let freeTime = (snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeTimelineEntries(on: dateKey)
         result.append(contentsOf: TimelineEntry.freeTimeSessions(freeTime))
-        result.append(contentsOf: sync.snapshot.caffeine.compactMap(TimelineEntry.caffeine))
-        result.append(contentsOf: sync.snapshot.food.compactMap(TimelineEntry.food))
-        let analyzer = CoverageGapAnalyzer(date: sync.snapshot.date, schedule: sync.snapshot.schedule,
-            freeTime: freeTime, healthSleep: sync.healthSleep, manualSleep: sync.snapshot.sleep, now: now)
+        result.append(contentsOf: snapshot.caffeine.compactMap(TimelineEntry.caffeine))
+        result.append(contentsOf: snapshot.food.compactMap(TimelineEntry.food))
+        let analyzer = CoverageGapAnalyzer(date: dateKey, schedule: snapshot.schedule,
+            freeTime: freeTime, healthSleep: displayedSleep, manualSleep: snapshot.sleep, now: now)
         result.append(contentsOf: analyzer.gaps.map {
             TimelineEntry(id: "gap:\($0.id)", title: "Unlogged time", subtitle: $0.surroundingContext,
                 startMinute: $0.start, endMinute: $0.end, priorityLevel: 0, kind: .gap, task: nil)
@@ -28,11 +46,31 @@ struct TimelineView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    TrackerSectionHeader(title: "Timeline", detail: sync.snapshot.date)
-                    SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
-                        TimelineScaleView(entries: entries(now: context.date), now: context.date, date: sync.snapshot.date,
-                            onSelectTask: { selectedTask = $0 }, onSelectGap: { showingGaps = true })
+                VStack(alignment: .leading, spacing: 18) {
+                    TrackerSectionHeader(title: "Timeline", detail: isToday ? "Today" : "Past day · view only")
+                    dateControls
+                    if let loadError {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(loadError, systemImage: "exclamationmark.triangle")
+                            Button("Retry") { Task { await loadDay() } }
+                        }.font(.subheadline)
+                    }
+                    if loading {
+                        ProgressView("Loading day…").frame(maxWidth: .infinity)
+                    }
+                    if let snapshot = displayedSnapshot {
+                        SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
+                            TimelineScaleView(entries: entries(snapshot: snapshot, now: context.date),
+                                now: context.date, date: dateKey, allowsEditing: isToday,
+                                onSelectTask: { selectedTask = $0 }, onSelectGap: { showingGaps = true })
+                        }
+                        .id(dateKey)
+                    }
+                    if let sleepWarning {
+                        Label(sleepWarning, systemImage: "bed.double").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let error = mediaSync.lastError {
+                        Text(error).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .padding(20)
@@ -40,19 +78,94 @@ struct TimelineView: View {
             .background(TrackerStyle.background)
             .navigationTitle("").trackerInlineNavigationTitle()
             .sheet(item: $selectedTask) { EditTaskView(task: $0) }
-            .navigationDestination(isPresented: $showingGaps) { CoverageGapsDetailView(date: sync.snapshot.date) }
-            .refreshable { await sync.refresh(); await mediaSync.refresh(date: sync.snapshot.date) }
-            .task {
-                if mediaSync.snapshot.fetchedAt == .distantPast { await mediaSync.refresh(date: sync.snapshot.date) }
-            }
+            .navigationDestination(isPresented: $showingGaps) { CoverageGapsDetailView(date: dateKey) }
+            .refreshable { await loadDay(refreshCurrent: true) }
+            .task(id: dateKey) { await loadDay() }
         }
     }
+
+    private var dateControls: some View {
+        HStack(spacing: 6) {
+            Button { moveDay(-1) } label: {
+                Image(systemName: "chevron.left").frame(width: 44, height: 44)
+            }.accessibilityLabel("Previous day")
+            DatePicker("Timeline date", selection: $selectedDate, in: ...Date(), displayedComponents: .date)
+                .labelsHidden().datePickerStyle(.compact)
+                .accessibilityLabel("Timeline date")
+            Button { moveDay(1) } label: {
+                Image(systemName: "chevron.right").frame(width: 44, height: 44)
+            }.disabled(isToday).accessibilityLabel("Next day")
+            Spacer(minLength: 0)
+            if !isToday {
+                Button("Today") { selectedDate = Date() }
+                    .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+            }
+        }.buttonStyle(.plain)
+    }
+
+    private func moveDay(_ offset: Int) {
+        guard let date = Calendar.current.date(byAdding: .day, value: offset, to: selectedDate) else { return }
+        selectedDate = min(date, Date())
+    }
+
+    @MainActor
+    private func loadDay(refreshCurrent: Bool = false) async {
+        let key = dateKey
+        let date = selectedDate
+        let token = UUID()
+        requestID = token
+        historicalSnapshot = nil
+        historicalSleep = nil
+        loadError = nil
+        sleepWarning = nil
+        loading = true
+        defer { if requestID == token { loading = false } }
+
+        // Only Today refreshes the shared controller, cache, reminders and widgets.
+        // A historical read must never become the app's current snapshot.
+        if Calendar.current.isDateInToday(date), sync.snapshot.date == key {
+            if refreshCurrent { await sync.refresh() }
+        } else {
+            do {
+                let snapshot = try await TrackerAPIClient.shared.fetchSnapshot(date: key)
+                guard !Task.isCancelled, requestID == token, dateKey == key else { return }
+                guard snapshot.date == key else { throw TimelineLoadError.wrongDate }
+                historicalSnapshot = snapshot
+            } catch {
+                guard !Task.isCancelled, requestID == token, dateKey == key else { return }
+                loadError = "Couldn’t load this day. \(error.localizedDescription)"
+                return
+            }
+        }
+#if os(iOS)
+        if !AppSettings.shared.usesLocalTestData, !Calendar.current.isDateInToday(date) {
+            do {
+                let sleep = try await HealthKitSleepStore.shared.sleep(for: date)
+                guard !Task.isCancelled, requestID == token, dateKey == key else { return }
+                historicalSleep = sleep
+            } catch {
+                guard !Task.isCancelled, requestID == token, dateKey == key else { return }
+                sleepWarning = "Health sleep couldn’t be loaded for this day; showing any manually logged sleep."
+            }
+        }
+#endif
+        guard !Task.isCancelled, requestID == token, dateKey == key else { return }
+        if refreshCurrent || mediaSync.snapshot.fetchedAt == .distantPast {
+            await mediaSync.refresh(date: key)
+        }
+    }
+}
+
+private enum TimelineLoadError: LocalizedError {
+    case wrongDate
+    var errorDescription: String? { "The server returned a different date. Please retry." }
 }
 
 private struct TimelineScaleView: View {
     let entries: [TimelineEntry]
     let now: Date
     let date: String
+    let allowsEditing: Bool
     let onSelectTask: (ScheduleItem) -> Void
     let onSelectGap: () -> Void
     @State private var selectedID: String?
@@ -104,9 +217,11 @@ private struct TimelineScaleView: View {
                             if let priority = task.priority { Text("Priority \(priority)") }
                             if let estimate = task.estimateMinutes { Text("Est. \(TrackerTime.label(estimate))") }
                             Spacer()
-                            Button("Edit task") { onSelectTask(task) }.frame(minHeight: 44)
+                            if allowsEditing {
+                                Button("Edit task") { onSelectTask(task) }.frame(minHeight: 44)
+                            }
                         }.font(.caption)
-                    } else if entry.kind.lane == "Gaps" {
+                    } else if entry.kind.lane == "Gaps", allowsEditing {
                         Button("Fill missing log", action: onSelectGap).frame(minHeight: 44)
                     }
                 }

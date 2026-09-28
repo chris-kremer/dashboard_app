@@ -68,10 +68,17 @@ struct RootView: View {
                     .accessibilityAddTraits(navigation.selectedSection == section ? .isSelected : [])
                 }
             }
-            .padding(5)
-            .background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 24))
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            .background {
+                // Only the dock's surface extends into the home-gesture area.
+                // Buttons remain inside the safe area, including with a keyboard.
+                UnevenRoundedRectangle(topLeadingRadius: 26, topTrailingRadius: 26)
+                    .fill(TrackerStyle.surface)
+                    .ignoresSafeArea(.container, edges: .bottom)
+            }
+            .padding(.top, 6)
             .background(TrackerStyle.background)
 #endif
         }

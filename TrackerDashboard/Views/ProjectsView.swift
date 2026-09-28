@@ -82,6 +82,23 @@ private struct ProjectSyncStatusView: View {
     }
 }
 
+private struct ProjectWorkloadLabel: View {
+    let tasks: [ScheduleItem]
+    let today: String
+
+    var body: some View {
+        let summary = ProjectWorkloadSummary(tasks: tasks, today: today)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(summary.total)
+            if let upcoming = summary.upcomingDetail {
+                Text(upcoming).font(.caption)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct ProjectSummaryCard: View {
     @Environment(SyncController.self) private var sync
     var project: TrackerProject?
@@ -106,7 +123,7 @@ private struct ProjectSummaryCard: View {
                             .foregroundStyle(TrackerStyle.ink)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityAddTraits(.isHeader)
-                        Text("\(tasks.count) open · ~\(TrackerTime.label(tasks.reduce(0) { $0 + ($1.estimateMinutes ?? 0) })) remaining")
+                        ProjectWorkloadLabel(tasks: tasks, today: today)
                             .font(.caption).foregroundStyle(.secondary)
                         if let deadline = project?.deadline { Text("Due \(deadline)").font(.caption).foregroundStyle(.secondary) }
                     }
@@ -193,7 +210,7 @@ struct ProjectDetailView: View {
                     .font(.subheadline)
                 }
                 if let project, groupId == nil {
-                    Text("\(tasks.count) open · ~\(TrackerTime.label(tasks.reduce(0) { $0 + ($1.estimateMinutes ?? 0) })) remaining")
+                    ProjectWorkloadLabel(tasks: tasks, today: today)
                         .font(.subheadline).foregroundStyle(.secondary)
                     if let deadline = project.deadline { Label("Due \(deadline)", systemImage: "calendar").font(.caption) }
                     if !project.closed {
@@ -220,7 +237,7 @@ struct ProjectDetailView: View {
                                 .frame(width: 38, height: 38).background(TrackerStyle.soft, in: RoundedRectangle(cornerRadius: 10))
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(child.name).font(.subheadline.weight(.semibold))
-                                Text("\(nested.count) task\(nested.count == 1 ? "" : "s") · ~\(TrackerTime.label(nested.reduce(0) { $0 + ($1.estimateMinutes ?? 0) }))")
+                                ProjectWorkloadLabel(tasks: nested, today: today)
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer(minLength: 0)

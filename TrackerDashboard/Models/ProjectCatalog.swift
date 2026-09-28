@@ -126,6 +126,30 @@ struct ProjectCatalog: Codable, Equatable {
     }
 }
 
+/// Uses the catalog's active representatives, so rollover copies count once.
+struct ProjectWorkloadSummary {
+    let tasks: [ScheduleItem]
+    let today: String
+
+    var total: String {
+        let minutes = tasks.reduce(0) { $0 + ($1.estimateMinutes ?? 0) }
+        return "\(tasks.count) open · ~\(TrackerTime.label(minutes)) \(upcoming.isEmpty ? "remaining" : "total remaining")"
+    }
+
+    private var upcoming: [ScheduleItem] { tasks.filter { $0.date > today } }
+
+    var upcomingDetail: String? {
+        guard !upcoming.isEmpty else { return nil }
+        let count = upcoming.count
+        let estimates = upcoming.compactMap(\.estimateMinutes)
+        let tasksLabel = "\(count) upcoming task\(count == 1 ? "" : "s")"
+        guard !estimates.isEmpty else { return "Includes \(tasksLabel) · not yet estimated" }
+        let time = TrackerTime.label(estimates.reduce(0, +))
+        let incomplete = estimates.count < count ? " · some estimates missing" : ""
+        return "Includes ~\(time) in \(tasksLabel)\(incomplete)"
+    }
+}
+
 struct ProjectRowReference: Codable {
     var rowNumber: Int
     var task: String

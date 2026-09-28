@@ -167,6 +167,8 @@ struct LocalTestStoreTests {
         _ = try await api.createTask(CreateTaskRequest(date: tomorrow, task: current.task, category: current.category, priority: 4, estimateMinutes: 20, taskId: current.taskId))
         catalog = try await api.fetchProjects()
         check(catalog.activeTasks(projectId: project.id, on: today).count == 1, "Current and future copies count once")
+        let currentSummary = ProjectWorkloadSummary(tasks: catalog.activeTasks(projectId: project.id, on: today), today: today)
+        check(currentSummary.total == "1 open · ~20m remaining" && currentSummary.upcomingDetail == nil, "Today’s rollover copy is not upcoming work")
         _ = try await api.completeTask(rowNumber: current.rowNumber, source: "test")
         catalog = try await api.fetchProjects()
         check(catalog.nextTask(projectId: project.id, on: today) == nil, "Finished current task no longer drives urgency")
@@ -184,6 +186,16 @@ struct LocalTestStoreTests {
         catalog = try await api.linkProjectTasks(ProjectLinkRequest(revision: catalog.revision, rows: [ProjectRowReference(future)], projectId: project.id, groupId: nil))
         check(catalog.nextTask(projectId: project.id, on: today) == nil, "Future tasks never drive today’s priority")
         check(!catalog.isComplete(project.id, on: today), "Future work prevents premature closure")
+        let futureSummary = ProjectWorkloadSummary(tasks: catalog.activeTasks(projectId: project.id, on: today), today: today)
+        check(futureSummary.total == "1 open · ~15m total remaining", "Future-only total is explicitly the whole workload")
+        check(futureSummary.upcomingDetail == "Includes ~15m in 1 upcoming task", "Future work is identified with its estimate")
+        let mixedSummary = ProjectWorkloadSummary(tasks: [current, future], today: today)
+        check(mixedSummary.total == "2 open · ~35m total remaining" && mixedSummary.upcomingDetail == futureSummary.upcomingDetail, "Mixed workload identifies the future portion without adding it twice")
+        var unestimatedFuture = future
+        unestimatedFuture.estimateMinutes = nil
+        check(ProjectWorkloadSummary(tasks: [unestimatedFuture], today: today).upcomingDetail == "Includes 1 upcoming task · not yet estimated", "Unestimated upcoming work remains visible")
+        check(ProjectWorkloadSummary(tasks: [future, unestimatedFuture], today: today).upcomingDetail == "Includes ~15m in 2 upcoming tasks · some estimates missing", "Partial upcoming estimates are explicit")
+        check(ProjectWorkloadSummary(tasks: [], today: today).upcomingDetail == nil, "Empty workload has no upcoming annotation")
         catalog.projects[0].closed = true
         catalog = try await api.saveProjects(catalog)
         check(catalog.projects[0].closed && !catalog.memberships.isEmpty, "Project closure retains history and membership")

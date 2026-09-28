@@ -1,5 +1,16 @@
 import SwiftUI
 
+extension View {
+    @ViewBuilder
+    func trackerHidesSystemTabBar() -> some View {
+#if os(iOS)
+        self.toolbar(.hidden, for: .tabBar)
+#else
+        self
+#endif
+    }
+}
+
 enum TrackerStyle {
     static let background = adaptive(0xF6F5F1, 0x151815)
     static let surface = adaptive(0xFFFFFF, 0x222722)

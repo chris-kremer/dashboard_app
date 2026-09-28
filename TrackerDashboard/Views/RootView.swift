@@ -6,33 +6,46 @@ struct RootView: View {
     @State private var saveConfirmation: SaveConfirmation?
 
     var body: some View {
-        TabView(selection: $navigation.selectedSection) {
+        VStack(spacing: 0) {
+            if AppSettings.shared.usesLocalTestData {
+                Label("Test data · saved only on this device", systemImage: "testtube.2")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial)
+            }
+            TabView(selection: $navigation.selectedSection) {
             TodayView()
-                .tabItem { Label("Today", systemImage: "sun.max") }
-                .tag(TrackerSection.today)
+                .trackerHidesSystemTabBar()
+                    .tabItem { Label("Today", systemImage: "sun.max") }
+                    .tag(TrackerSection.today)
 
             TasksView()
-                .tabItem { Label("Tasks", systemImage: "checklist") }
-                .tag(TrackerSection.tasks)
+                .trackerHidesSystemTabBar()
+                    .tabItem { Label("Tasks", systemImage: "checklist") }
+                    .tag(TrackerSection.tasks)
 
             TimelineView()
-                .tabItem { Label("Timeline", systemImage: "calendar.day.timeline.left") }
-                .tag(TrackerSection.timeline)
+                .trackerHidesSystemTabBar()
+                    .tabItem { Label("Timeline", systemImage: "calendar.day.timeline.left") }
+                    .tag(TrackerSection.timeline)
 
             InsightsView()
-                .tabItem { Label("Insights", systemImage: "chart.bar.xaxis") }
-                .tag(TrackerSection.insights)
+                .trackerHidesSystemTabBar()
+                    .tabItem { Label("Insights", systemImage: "chart.bar.xaxis") }
+                    .tag(TrackerSection.insights)
 
             SettingsView()
-                .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(TrackerSection.settings)
-        }
-        .environment(navigation)
-        .tint(TrackerStyle.accent)
-        .background(TrackerStyle.background)
+                .trackerHidesSystemTabBar()
+                    .tabItem { Label("Settings", systemImage: "gearshape") }
+                    .tag(TrackerSection.settings)
+            }
 #if os(iOS)
-        .toolbar(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            .toolbar(.hidden, for: .tabBar)
+#endif
+#if os(iOS)
+            // Reserve real layout space: TabView can swallow nested bottom insets.
+            // The navigation bar must never overlap a child's Add control.
             HStack(spacing: 2) {
                 ForEach(TrackerSection.allCases) { section in
                     Button {
@@ -56,17 +69,11 @@ struct RootView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .background(TrackerStyle.background)
-        }
 #endif
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if AppSettings.shared.usesLocalTestData {
-                Label("Test data · saved only on this device", systemImage: "testtube.2")
-                    .font(.caption)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(.thinMaterial)
-            }
         }
+        .environment(navigation)
+        .tint(TrackerStyle.accent)
+        .background(TrackerStyle.background)
         .overlay(alignment: .top) {
             VStack(spacing: 10) {
                 if let celebration {

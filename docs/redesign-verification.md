@@ -49,3 +49,16 @@ Test large text with long task titles; rows must wrap instead of clipping.
   selection, and entry selection resets when the displayed date changes.
 - Regression tests cover historical task, meal, caffeine and sleep records and
   verify that fetching them leaves today's records unchanged.
+
+## Layout polish (build 13)
+
+- Status and category share a compact stack; the edit button retains its 44-point
+  touch target without adding whitespace between the two labels.
+- Custom tabs and the test-only banner reserve actual vertical layout space.
+  Each tab explicitly hides the native iOS tab bar to avoid duplicate navigation.
+- Priority tasks uses adaptive sage cards, a completion summary, open-first
+  sections, compact metadata, and wrapping long names.
+- Verified in an isolated iPhone 16e simulator: full Add capsule visible above
+  the single custom tab bar, all four Add menu options, compact running-task
+  header, and open/completed priority rows including a long task title.
+- Storage/transport regression suite passed; no production records were changed.

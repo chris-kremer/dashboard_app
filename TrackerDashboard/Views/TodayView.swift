@@ -124,18 +124,21 @@ struct TodayView: View {
         let isPaused = task.stop != nil
         let elapsed = max(0, Int((task.dateTime(from: task.stop) ?? now).timeIntervalSince(task.dateTime(from: task.start) ?? now)))
         return VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Label(isPaused ? "PAUSED" : "IN PROGRESS", systemImage: isPaused ? "pause.fill" : "circle.fill")
-                    .font(.caption2.weight(.semibold)).foregroundStyle(TrackerStyle.accent)
-                Spacer()
-                Button {
-                    navigation.selectedTask = task
-                    navigation.selectedSection = .tasks
-                } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
-                .accessibilityLabel("Edit \(task.task)")
-            }
-            VStack(alignment: .leading, spacing: 5) {
-                Text(task.category).font(.caption).foregroundStyle(TrackerStyle.accent)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(isPaused ? "PAUSED" : "IN PROGRESS", systemImage: isPaused ? "pause.fill" : "circle.fill")
+                            .font(.caption2.weight(.semibold))
+                        Text(task.category).font(.caption)
+                    }
+                    .foregroundStyle(TrackerStyle.accent)
+                    Spacer()
+                    Button {
+                        navigation.selectedTask = task
+                        navigation.selectedSection = .tasks
+                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Edit \(task.task)")
+                }
                 Text(task.task).font(.title2.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
             }
             HStack(alignment: .firstTextBaseline) {

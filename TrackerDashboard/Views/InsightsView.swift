@@ -1526,29 +1526,96 @@ private struct UrgentTasksDetailView: View {
     let completed: [ScheduleItem]
     let open: [ScheduleItem]
 
+    private var total: Int { completed.count + open.count }
+    private var estimatedMinutes: Int { open.reduce(0) { $0 + max(0, $1.estimateMinutes ?? 0) } }
+
     var body: some View {
-        List {
-            if completed.isEmpty && open.isEmpty {
-                ContentUnavailableView("No urgent tasks", systemImage: "flame")
-            } else {
-                if !completed.isEmpty {
-                    Section("Done") {
-                        ForEach(completed) { task in
-                            InsightTaskRow(task: task, tint: .green)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                if total == 0 {
+                    ContentUnavailableView("No priority tasks", systemImage: "checkmark.circle",
+                        description: Text("Tasks with adjusted priority 10 or higher appear here."))
+                } else {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Adjusted priority 10+").font(.caption).foregroundStyle(.secondary)
+                        HStack(alignment: .top) {
+                            summaryValue("\(open.count)", caption: "Still open")
+                            Spacer()
+                            summaryValue("\(completed.count)", caption: "Finished")
+                            Spacer()
+                            summaryValue(TrackerTime.label(estimatedMinutes), caption: "Est. remaining")
                         }
+                        ProgressView(value: Double(completed.count), total: Double(total))
+                            .tint(TrackerStyle.accent)
+                        Text("\(completed.count) of \(total) finished")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                }
-                if !open.isEmpty {
-                    Section("Open") {
-                        ForEach(open) { task in
-                            InsightTaskRow(task: task, tint: .orange)
-                        }
-                    }
+                    .padding(20)
+                    .background(TrackerStyle.soft, in: RoundedRectangle(cornerRadius: 24))
+                    if !open.isEmpty { taskSection("Still to do", tasks: open, finished: false) }
+                    if !completed.isEmpty { taskSection("Finished", tasks: completed, finished: true) }
                 }
             }
+            .padding(20)
         }
-        .navigationTitle("Urgent Done")
+        .background(TrackerStyle.background)
+        .navigationTitle("Priority tasks")
         .trackerInlineNavigationTitle()
+    }
+
+    private func summaryValue(_ value: String, caption: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(value).font(.title3.weight(.medium)).monospacedDigit()
+            Text(caption).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private func taskSection(_ title: String, tasks: [ScheduleItem], finished: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(title).font(.headline)
+                Spacer()
+                Text("\(tasks.count)").font(.caption).foregroundStyle(.secondary)
+            }
+            VStack(spacing: 0) {
+                ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                    HStack(alignment: .top, spacing: 10) {
+                        if finished {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(TrackerStyle.accent).padding(.top, 2)
+                        }
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(task.task).font(.subheadline.weight(.semibold))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text(metadata(task)).font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                        if let priority = task.adjustedPriority {
+                            Text("AP \(priority)").font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 8).padding(.vertical, 5)
+                                .foregroundStyle(TrackerStyle.accent)
+                                .background(TrackerStyle.soft, in: Capsule())
+                                .fixedSize()
+                        }
+                    }
+                    .padding(.vertical, 13)
+                    if index < tasks.count - 1 { Divider() }
+                }
+            }
+            .padding(.horizontal, 16)
+            .background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 20))
+        }
+    }
+
+    private func metadata(_ task: ScheduleItem) -> String {
+        var values = [task.category].filter { !$0.isEmpty }
+        if let priority = task.priority { values.append("P\(priority)") }
+        if let estimate = task.estimateMinutes { values.append("Est. \(TrackerTime.label(estimate))") }
+        if let start = task.start {
+            values.append(task.stop.map { "\(start)–\($0)" } ?? "Started \(start)")
+        } else if let stop = task.stop { values.append("Stopped \(stop)") }
+        return values.joined(separator: " · ")
     }
 }
 

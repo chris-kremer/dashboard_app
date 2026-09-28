@@ -93,20 +93,43 @@ private struct ProjectSummaryCard: View {
             NavigationLink {
                 ProjectDetailView(projectId: project?.id)
             } label: {
-                HStack {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: project == nil ? "tray.fill" : "folder.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(TrackerStyle.accent)
+                        .frame(width: 32, height: 32)
+                        .background(TrackerStyle.soft, in: RoundedRectangle(cornerRadius: 10))
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(project?.name ?? "Other tasks").font(.headline).foregroundStyle(TrackerStyle.ink)
+                        Text(project?.name ?? "Other tasks")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(TrackerStyle.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
                         Text("\(tasks.count) open · ~\(TrackerTime.label(tasks.reduce(0) { $0 + ($1.estimateMinutes ?? 0) })) remaining")
                             .font(.caption).foregroundStyle(.secondary)
                         if let deadline = project?.deadline { Text("Due \(deadline)").font(.caption).foregroundStyle(.secondary) }
                     }
                     Spacer(minLength: 6)
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        .padding(.top, 9)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plain)
             if let next {
-                Divider()
-                TaskRowView(task: next, compact: true)
+                // The project is the container; the actionable task is visibly
+                // nested inside it, not a second competing card heading.
+                VStack(alignment: .leading, spacing: 0) {
+                    Label(nextTaskLabel(next), systemImage: "arrow.turn.down.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(TrackerStyle.accent)
+                        .padding(.horizontal, 4)
+                    TaskRowView(task: next, compact: true)
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 10)
+                .padding(.bottom, 2)
+                .background(TrackerStyle.background, in: RoundedRectangle(cornerRadius: 14))
             } else {
                 Text(tasks.first.map { "Next task \($0.date)" } ?? "No actionable tasks")
                     .font(.caption).foregroundStyle(.secondary)
@@ -123,6 +146,13 @@ private struct ProjectSummaryCard: View {
         }
         .padding(16)
         .background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    private func nextTaskLabel(_ task: ScheduleItem) -> String {
+        if task.status == .inProgress {
+            return task.stop == nil ? "CURRENT TASK" : "PAUSED TASK"
+        }
+        return "NEXT TASK"
     }
 }
 

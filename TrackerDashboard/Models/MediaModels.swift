@@ -171,3 +171,78 @@ struct MediaDailyUsage: Identifiable, Equatable {
 
     var id: String { date }
 }
+
+extension MediaSnapshot {
+    func trackedFreeTimeTimelineEntries(on date: String) -> [FreeTimeEntry] {
+        if sessions != nil {
+            return (sessions ?? []).filter { $0.date == date }.map { session in
+                FreeTimeEntry(
+                    id: "media-\(session.id)",
+                    date: date,
+                    label: session.source == .youtube ? "YouTube" : "X feed",
+                    durationMinutes: max(1, Int(ceil(Double(session.durationSeconds) / 60))),
+                    time: nil,
+                    start: Date.trackerTimeFormatter.string(from: session.startedAt),
+                    end: Date.trackerTimeFormatter.string(from: session.endedAt)
+                )
+            }
+            .sorted { ($0.start ?? "", $0.label) < ($1.start ?? "", $1.label) }
+        }
+        return Dictionary(grouping: events.filter { $0.date == date }, by: \.source)
+            .flatMap { source, events in
+                usageSessions(for: events).map { session in
+                    FreeTimeEntry(
+                        id: "media-\(source.rawValue)-\(Int(session.start.timeIntervalSince1970))",
+                        date: date,
+                        label: source == .youtube ? "YouTube" : "X feed",
+                        durationMinutes: max(1, Int(ceil(Double(session.attentionSeconds) / 60))),
+                        time: nil,
+                        start: Date.trackerTimeFormatter.string(from: session.start),
+                        end: Date.trackerTimeFormatter.string(from: session.end)
+                    )
+                }
+            }
+            .sorted { ($0.start ?? "", $0.label) < ($1.start ?? "", $1.label) }
+    }
+
+    func usageSessions(for events: [MediaEvent]) -> [MediaUsageSession] {
+        let maximumIdleGap: TimeInterval = 5 * 60
+        var sessions: [MediaUsageSession] = []
+
+        for event in events.sorted(by: { $0.timestamp < $1.timestamp }) {
+            let attentionSeconds = max(event.attentionSeconds, estimatedAttentionSeconds(for: event))
+            guard attentionSeconds > 0 else { continue }
+            let eventEnd = event.timestamp.addingTimeInterval(TimeInterval(attentionSeconds))
+
+            if var current = sessions.last,
+               event.timestamp.timeIntervalSince(current.end) <= maximumIdleGap {
+                current.end = max(current.end, eventEnd)
+                current.attentionSeconds += attentionSeconds
+                sessions[sessions.count - 1] = current
+            } else {
+                sessions.append(MediaUsageSession(
+                    start: event.timestamp,
+                    end: eventEnd,
+                    attentionSeconds: attentionSeconds
+                ))
+            }
+        }
+        return sessions
+    }
+
+    private func estimatedAttentionSeconds(for event: MediaEvent) -> Int {
+        switch event.source {
+        case .youtube:
+            return 0
+        case .x:
+            return 10
+        }
+    }
+
+}
+
+struct MediaUsageSession {
+    let start: Date
+    var end: Date
+    var attentionSeconds: Int
+}

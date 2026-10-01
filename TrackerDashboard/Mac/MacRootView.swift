@@ -25,5 +25,10 @@ struct MacRootView: View {
             }
         }
         .environment(navigation)
+        .onOpenURL { url in
+            if url.scheme == "trackerdashboard", url.host == "timeline" {
+                navigation.selectedSection = .timeline
+            }
+        }
     }
 }

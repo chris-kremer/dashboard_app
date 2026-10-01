@@ -36,7 +36,12 @@ struct TasksView: View {
                 } else {
                 List {
                 Section {
-                    TrackerSectionHeader(title: "Tasks", detail: "\(sync.snapshot.todayOpenTasks.count) open · \(TrackerTime.label(sync.snapshot.openEstimateMinutes)) estimated")
+                    SwiftUI.TimelineView(.everyMinute) { context in
+                        let tasks = sync.snapshot.todayOpenTasks
+                        let minutes = tasks.reduce(0) { $0 + $1.remainingEstimateMinutes(at: context.date) }
+                        let started = tasks.contains { $0.status == .inProgress && $0.dateTime(from: $0.start) != nil }
+                        TrackerSectionHeader(title: "Tasks", detail: "\(tasks.count) open · \(TrackerTime.label(minutes)) \(started ? "left" : "estimated")")
+                    }
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                 }

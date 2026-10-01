@@ -83,6 +83,11 @@ struct RootView: View {
 #endif
         }
         .environment(navigation)
+        .onOpenURL { url in
+            if url.scheme == "trackerdashboard", url.host == "timeline" {
+                navigation.selectedSection = .timeline
+            }
+        }
         .tint(TrackerStyle.accent)
         .background(TrackerStyle.background)
         .alert("All tasks done", isPresented: Binding(get: { sync.projectToClose != nil }, set: { if !$0 { sync.projectToClose = nil } })) {

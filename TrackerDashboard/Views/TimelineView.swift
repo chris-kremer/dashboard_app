@@ -24,23 +24,8 @@ struct TimelineView: View {
         return historicalSleep?.date == dateKey ? historicalSleep : nil
     }
 
-    private func entries(snapshot: TrackerSnapshot, now: Date) -> [TimelineEntry] {
-        var result = snapshot.schedule.filter { $0.date == dateKey && $0.status != .cancelled }
-            .compactMap { TimelineEntry.schedule($0, now: now) }
-        if let sleep = displayedSleep {
-            result.append(contentsOf: TimelineEntry.healthSleep(sleep))
-        } else if let sleep = snapshot.sleep { result.append(contentsOf: TimelineEntry.sleep(sleep)) }
-        let freeTime = (snapshot.freeTime ?? []) + mediaSync.trackedFreeTimeTimelineEntries(on: dateKey)
-        result.append(contentsOf: TimelineEntry.freeTimeSessions(freeTime))
-        result.append(contentsOf: snapshot.caffeine.compactMap(TimelineEntry.caffeine))
-        result.append(contentsOf: snapshot.food.compactMap(TimelineEntry.food))
-        let analyzer = CoverageGapAnalyzer(date: dateKey, schedule: snapshot.schedule,
-            freeTime: freeTime, healthSleep: displayedSleep, manualSleep: snapshot.sleep, now: now)
-        result.append(contentsOf: analyzer.gaps.map {
-            TimelineEntry(id: "gap:\($0.id)", title: "Unlogged time", subtitle: $0.surroundingContext,
-                startMinute: $0.start, endMinute: $0.end, priorityLevel: 0, kind: .gap, task: nil)
-        })
-        return result.sorted { ($0.startMinute, $0.endMinute, $0.id) < ($1.startMinute, $1.endMinute, $1.id) }
+    private func entries(snapshot: TrackerSnapshot, now: Date) -> [TimelineChartEntry] {
+        TimelineChartEntry.entries(snapshot: snapshot, healthSleep: displayedSleep, media: mediaSync.snapshot, now: now)
     }
 
     var body: some View {
@@ -162,16 +147,16 @@ private enum TimelineLoadError: LocalizedError {
 }
 
 private struct TimelineScaleView: View {
-    let entries: [TimelineEntry]
+    let entries: [TimelineChartEntry]
     let now: Date
     let date: String
     let allowsEditing: Bool
     let onSelectTask: (ScheduleItem) -> Void
     let onSelectGap: () -> Void
     @State private var selectedID: String?
-    private let lanes = ["Sleep", "Tasks", "Life", "Media", "Gaps"]
+    private let lanes = TimelineLane.allCases.map(\.title)
 
-    private var selected: TimelineEntry? {
+    private var selected: TimelineChartEntry? {
         entries.first { $0.id == selectedID } ?? entries.last { $0.kind.lane != "Gaps" } ?? entries.first
     }
     private var isToday: Bool { date == Date.trackerDateFormatter.string(from: now) }
@@ -184,6 +169,7 @@ private struct TimelineScaleView: View {
                 Spacer()
                 Text("00:00–24:00").font(.caption).foregroundStyle(.secondary)
             }
+            Text("Darker green = higher combined priority").font(.caption2).foregroundStyle(.secondary)
             VStack(spacing: 4) {
                 GeometryReader { proxy in
                     ForEach([0, 6, 12, 18, 24], id: \.self) { hour in
@@ -230,7 +216,7 @@ private struct TimelineScaleView: View {
                 .background(TrackerStyle.surface, in: RoundedRectangle(cornerRadius: 22))
                 .accessibilityElement(children: .contain)
                 HStack {
-                    Text("Tap a lane to inspect entries")
+                    Text("Tap to inspect · tap overlaps again to cycle")
                     Spacer()
                     Text("\((entries.firstIndex { $0.id == entry.id } ?? 0) + 1) / \(entries.count)")
                 }.font(.caption2).foregroundStyle(.secondary)
@@ -254,8 +240,17 @@ private struct TimelineScaleView: View {
                         Rectangle().fill(Color.secondary.opacity(0.08))
                             .frame(width: 1, height: 34).offset(x: CGFloat(hour) / 24 * max(0, width - 1), y: 5)
                     }
-                    ForEach(Array(members.enumerated()), id: \.element.id) { index, entry in
-                        entryMark(entry, track: tracks[index], count: trackCount, width: width)
+                    if lane == "Tasks" {
+                        ForEach(TimelineTaskSegment.segments(from: members)) { segment in
+                            Rectangle()
+                                .fill(TimelineChartEntry.Kind.schedule(priority: segment.priority).color)
+                                .frame(width: CGFloat(segment.endMinute - segment.startMinute) / 1440 * width, height: 28)
+                                .offset(x: CGFloat(segment.startMinute) / 1440 * width, y: 8)
+                        }
+                    } else {
+                        ForEach(Array(members.enumerated()), id: \.element.id) { index, entry in
+                            entryMark(entry, track: tracks[index], count: trackCount, width: width)
+                        }
                     }
                     if isToday {
                         Rectangle().fill(TrackerStyle.accent.opacity(0.55))
@@ -265,6 +260,14 @@ private struct TimelineScaleView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(coordinateSpace: .local) { point in
                     let minute = Double(point.x / max(width, 1)) * 1440
+                    if lane == "Tasks" {
+                        let overlapping = members.filter { Double($0.startMinute) <= minute && minute < Double($0.endMinute) }
+                        if !overlapping.isEmpty {
+                            let index = overlapping.firstIndex { $0.id == selectedID }
+                            selectedID = overlapping[index.map { ($0 + 1) % overlapping.count } ?? 0].id
+                            return
+                        }
+                    }
                     let track = max(0, min(trackCount - 1, Int((point.y - 8) / (28 / CGFloat(trackCount)))))
                     selectedID = members.enumerated().min { a, b in
                         distance(a.element, minute: minute, track: tracks[a.offset], selectedTrack: track)
@@ -287,12 +290,12 @@ private struct TimelineScaleView: View {
         }
     }
 
-    private func distance(_ entry: TimelineEntry, minute: Double, track: Int, selectedTrack: Int) -> Double {
+    private func distance(_ entry: TimelineChartEntry, minute: Double, track: Int, selectedTrack: Int) -> Double {
         max(Double(entry.startMinute) - minute, minute - Double(entry.endMinute), 0)
             + (track == selectedTrack ? 0 : 0.5)
     }
 
-    private func entryMark(_ entry: TimelineEntry, track: Int, count: Int, width: CGFloat) -> some View {
+    private func entryMark(_ entry: TimelineChartEntry, track: Int, count: Int, width: CGFloat) -> some View {
         let x: CGFloat = CGFloat(entry.startMinute) / 1440.0 * width
         let slotHeight: CGFloat = 28.0 / CGFloat(count)
         let naturalWidth: CGFloat = CGFloat(entry.durationMinutes) / 1440.0 * width
@@ -308,231 +311,5 @@ private struct TimelineScaleView: View {
         guard !entries.isEmpty else { return }
         let index = entries.firstIndex { $0.id == selected?.id } ?? 0
         selectedID = entries[(index + delta + entries.count) % entries.count].id
-    }
-}
-
-private struct TimelineEntry: Identifiable {
-    let id: String
-    let title: String
-    let subtitle: String
-    let startMinute: Int
-    let endMinute: Int
-    let priorityLevel: Int
-    let kind: Kind
-    let task: ScheduleItem?
-
-    var durationMinutes: Int { max(1, endMinute - startMinute) }
-    var color: Color { kind.color }
-    var timeRange: String { "\(Self.timeString(startMinute))-\(Self.timeString(endMinute))" }
-
-    func overlaps(_ other: TimelineEntry) -> Bool {
-        startMinute < other.endMinute && other.startMinute < endMinute
-    }
-
-    static func schedule(_ item: ScheduleItem, now: Date) -> TimelineEntry? {
-        guard let start = minutes(item.start) else { return nil }
-        let fallbackEnd = item.date == Date.trackerDateFormatter.string(from: now) && item.status == .inProgress
-            ? (minutes(Date.trackerTimeFormatter.string(from: now)) ?? start)
-            : start + max(item.actualMinutes ?? 0, 1)
-        let end = minutes(item.stop) ?? fallbackEnd
-        return TimelineEntry(
-            id: item.id,
-            title: item.task,
-            subtitle: item.category,
-            startMinute: start,
-            endMinute: min(max(end, start + 1), 24 * 60),
-            priorityLevel: item.priority ?? 0,
-            kind: item.isFreeTimeCategory ? .freeTime : .schedule(priority: item.priority ?? 0),
-            task: item
-        )
-    }
-
-    static func sleep(_ item: SleepEntry) -> [TimelineEntry] {
-        let start = minutes(item.sleepStart) ?? 0
-        guard let end = minutes(item.actualWake ?? item.plannedWake ?? item.alarmTime) else { return [] }
-        if end < start {
-            return [
-                sleepEntry(item, start: 0, end: max(end, 30), suffix: "early")
-            ]
-        }
-        return [
-            sleepEntry(item, start: start, end: max(end, start + 30), suffix: "main")
-        ]
-    }
-
-    private static func sleepEntry(_ item: SleepEntry, start: Int, end: Int, suffix: String) -> TimelineEntry {
-        TimelineEntry(
-            id: "sleep:\(item.date):\(suffix)",
-            title: "Sleep",
-            subtitle: item.sleepHours.map { String(format: "%.1fh", $0) } ?? "",
-            startMinute: start,
-            endMinute: min(max(end, start + 1), 24 * 60),
-            priorityLevel: 0,
-            kind: .sleep,
-            task: nil
-        )
-    }
-
-    static func healthSleep(_ item: HealthSleepEntry) -> [TimelineEntry] {
-        guard let firstStart = item.intervals.map(\.start).min(),
-              let lastEnd = item.intervals.map(\.end).max(),
-              lastEnd > firstStart
-        else { return [] }
-
-        let session = HealthSleepInterval(
-            id: item.date,
-            start: firstStart,
-            end: lastEnd
-        )
-        let start = minutes(session.startTime) ?? 0
-        let end = minutes(session.endTime) ?? start + max(session.durationMinutes, 30)
-
-        if !Calendar.current.isDate(firstStart, inSameDayAs: lastEnd) || end < start {
-            return [
-                healthSleepEntry(session, start: 0, end: max(end, 30), suffix: "early")
-            ]
-        }
-        return [healthSleepEntry(session, start: start, end: end, suffix: "main")]
-    }
-
-    private static func healthSleepEntry(_ interval: HealthSleepInterval, start: Int, end: Int, suffix: String) -> TimelineEntry {
-        TimelineEntry(
-            id: "health-sleep:\(interval.id):\(suffix)",
-            title: "Sleep",
-            subtitle: "HealthKit",
-            startMinute: start,
-            endMinute: min(max(end, start + 1), 24 * 60),
-            priorityLevel: 0,
-            kind: .sleep,
-            task: nil
-        )
-    }
-
-    static func freeTime(_ item: FreeTimeEntry) -> TimelineEntry? {
-        let start = minutes(item.start ?? item.time)
-        let end = minutes(item.end)
-        guard let start else { return nil }
-        let fallbackEnd = start + max(item.durationMinutes ?? 30, 15)
-        return TimelineEntry(
-            id: item.id,
-            title: item.label,
-            subtitle: "Media",
-            startMinute: start,
-            endMinute: min(max(end ?? fallbackEnd, start + 1), 24 * 60),
-            priorityLevel: -1,
-            kind: item.id.hasPrefix("media-") ? .mediaFreeTime : .freeTime,
-            task: nil
-        )
-    }
-
-    static func freeTimeSessions(_ items: [FreeTimeEntry]) -> [TimelineEntry] {
-        items
-            .compactMap(freeTime)
-            .sorted { ($0.startMinute, $0.endMinute) < ($1.startMinute, $1.endMinute) }
-            .reduce(into: [TimelineEntry]()) { sessions, entry in
-                guard let previous = sessions.last,
-                      entry.startMinute - previous.endMinute < 2
-                else {
-                    sessions.append(entry)
-                    return
-                }
-
-                sessions[sessions.count - 1] = TimelineEntry(
-                    id: "\(previous.id)+\(entry.id)",
-                    title: combinedFreeTimeTitle(previous.title, entry.title),
-                    subtitle: "Media",
-                    startMinute: min(previous.startMinute, entry.startMinute),
-                    endMinute: max(previous.endMinute, entry.endMinute),
-                    priorityLevel: -1,
-                    kind: previous.kind.isMediaFreeTime || entry.kind.isMediaFreeTime ? .mediaFreeTime : .freeTime,
-                    task: nil
-                )
-            }
-    }
-
-    private static func combinedFreeTimeTitle(_ first: String, _ second: String) -> String {
-        var labels: [String] = []
-        for label in [first, second].flatMap({ $0.components(separatedBy: " + ") }) where !labels.contains(label) {
-            labels.append(label)
-        }
-        return labels.joined(separator: " + ")
-    }
-
-    static func caffeine(_ item: CaffeineEntry) -> TimelineEntry? {
-        guard let start = minutes(item.time) else { return nil }
-        return TimelineEntry(
-            id: item.id,
-            title: item.label,
-            subtitle: "Coffee",
-            startMinute: start,
-            endMinute: min(start + 1, 24 * 60),
-            priorityLevel: 6,
-            kind: .caffeine,
-            task: nil
-        )
-    }
-
-    static func food(_ item: FoodEntry) -> TimelineEntry? {
-        guard let start = minutes(item.time), start < 1440 else { return nil }
-        return TimelineEntry(id: "food:\(item.id)", title: item.item,
-            subtitle: [item.mealContext, item.amount, item.location, item.notes].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "),
-            startMinute: start, endMinute: min(start + 1, 1440), priorityLevel: 0, kind: .food, task: nil)
-    }
-
-    private static func minutes(_ value: String?) -> Int? {
-        guard let value else { return nil }
-        let parts = value.split(separator: ":").compactMap { Int(String($0)) }
-        guard parts.count >= 2 else { return nil }
-        return min(max(parts[0] * 60 + parts[1], 0), 24 * 60)
-    }
-
-    private static func timeString(_ minute: Int) -> String {
-        String(format: "%02d:%02d", min(minute / 60, 24), minute % 60)
-    }
-
-    enum Kind {
-        case sleep
-        case freeTime
-        case mediaFreeTime
-        case caffeine
-        case food
-        case gap
-        case schedule(priority: Int)
-
-        var lane: String {
-            switch self {
-            case .sleep: "Sleep"
-            case .freeTime, .mediaFreeTime: "Media"
-            case .caffeine, .food: "Life"
-            case .gap: "Gaps"
-            case .schedule: "Tasks"
-            }
-        }
-
-        var isPoint: Bool {
-            switch self { case .food, .caffeine: true; default: false }
-        }
-
-        var isMediaFreeTime: Bool {
-            if case .mediaFreeTime = self { return true }
-            return false
-        }
-
-        var color: Color {
-            switch self {
-            case .sleep:
-                return TrackerStyle.sleep
-            case .freeTime:
-                return TrackerStyle.freeTime
-            case .mediaFreeTime:
-                return TrackerStyle.freeTime
-            case .caffeine, .food:
-                return TrackerStyle.life
-            case .gap:
-                return .secondary
-            case .schedule:
-                return TrackerStyle.accent
-            }
-        }
     }
 }

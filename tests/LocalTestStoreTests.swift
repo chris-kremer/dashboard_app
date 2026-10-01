@@ -28,7 +28,37 @@ struct LocalTestStoreTests {
         precondition(value, message)
     }
 
+    static func timelineAndEstimateChecks() {
+        let date = "2026-10-01"
+        let base = Date.trackerDateFormatter.date(from: date)!
+        let start = base.addingTimeInterval(10 * 3600)
+        var first = ScheduleItem(id: "first", rowNumber: 1, date: date, task: "First", category: "Work", priority: 2, estimateMinutes: 30, start: "10:00", status: .inProgress)
+        let waiting = ScheduleItem(id: "waiting", rowNumber: 2, date: date, task: "Waiting", category: "Work", estimateMinutes: 90, status: .open)
+        let at20 = start.addingTimeInterval(20 * 60)
+        check(first.remainingEstimateMinutes(at: at20) + waiting.remainingEstimateMinutes(at: at20) == 100, "Two-hour total has 100 minutes left after 20 minutes")
+        check(first.remainingEstimateMinutes(at: start.addingTimeInterval(40 * 60)) + waiting.remainingEstimateMinutes(at: at20) == 90, "Overrun never consumes another task's estimate")
+        check(first.remainingEstimateMinutes(at: start.addingTimeInterval(20 * 60 + 30)) == 9, "Elapsed minutes round to nearest minute")
+        check(first.remainingEstimateMinutes(at: start.addingTimeInterval(-60)) == 30, "Future starts cannot increase estimates")
+        first.stop = "10:20"
+        check(first.remainingEstimateMinutes(at: start.addingTimeInterval(40 * 60)) == 10, "Paused estimates freeze")
+        first.stop = "11:00"
+        let second = ScheduleItem(id: "second", rowNumber: 3, date: date, task: "Second", category: "Work", priority: 3, estimateMinutes: 60, start: "10:30", stop: "11:30", status: .done)
+        let blocks = [first, second].compactMap { TimelineChartEntry.schedule($0, now: at20) }
+        let segments = TimelineTaskSegment.segments(from: blocks)
+        check(segments.map(\.priority) == [2, 5, 3], "Only overlapping portions add priority")
+        check(segments.map(\.startMinute) == [600, 630, 660] && segments.map(\.endMinute) == [630, 660, 690], "Overlap edges stay at exact start/stop minutes")
+        var mediaTask = second; mediaTask.category = "Media"
+        let mediaBlock = TimelineChartEntry.schedule(mediaTask, now: at20)!
+        check(mediaBlock.lane == .media && TimelineTaskSegment.segments(from: [mediaBlock]).isEmpty, "Media tasks retain their own lane")
+        var touching = second; touching.start = "11:00"
+        check(TimelineTaskSegment.segments(from: [blocks[0], TimelineChartEntry.schedule(touching, now: at20)!]).allSatisfy { $0.entries.count == 1 }, "Adjacent tasks are not overlaps")
+        var running = first; running.stop = nil
+        check(TimelineChartEntry.schedule(running, now: at20)?.endMinute == 620, "Running chart blocks grow with the timeline date")
+        print("Timeline overlap and remaining-estimate checks passed")
+    }
+
     static func main() async throws {
+        timelineAndEstimateChecks()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("tracker-test-\(UUID())")
         let store = LocalTestStore(directory: directory)
         let configuration = URLSessionConfiguration.ephemeral

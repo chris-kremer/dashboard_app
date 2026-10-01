@@ -65,6 +65,20 @@ struct TaskSuggestion: Codable, Identifiable, Equatable {
 }
 
 extension ScheduleItem {
+    func remainingEstimateMinutes(at now: Date) -> Int {
+        let estimate = max(0, estimateMinutes ?? 0)
+        guard status == .inProgress,
+              let startedAt = dateTime(from: start)
+        else {
+            return estimate
+        }
+
+        // Paused tasks retain their progress; overruns never consume another task's estimate.
+        let elapsedUntil = min(dateTime(from: stop) ?? now, now)
+        let elapsedMinutes = max(0, elapsedUntil.timeIntervalSince(startedAt) / 60).rounded()
+        return estimate - Int(min(Double(estimate), elapsedMinutes))
+    }
+
     var isOpenDisplayTask: Bool {
         !task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && status != .done

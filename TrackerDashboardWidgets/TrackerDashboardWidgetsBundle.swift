@@ -9,6 +9,7 @@ struct TrackerDashboardWidgetsBundle: WidgetBundle {
 #else
         TopTaskWidget()
         TaskListWidget()
+        TimelineChartWidget()
         LockScreenStatusWidget()
 #if os(iOS)
         TaskLiveActivityWidget()
